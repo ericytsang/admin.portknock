@@ -12,14 +12,13 @@ import org.pcap4j.packet.UdpPacket
 import java.io.ByteArrayInputStream
 import java.io.Closeable
 import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.net.InetAddress
 import java.security.KeyPair
 import java.util.LinkedHashMap
+import java.util.Random
 import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.DelayQueue
-import java.util.concurrent.Delayed
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.TimeUnit
 import javax.crypto.Cipher
 import kotlin.concurrent.thread
 
@@ -49,7 +48,6 @@ class PortKnockServer(
     override fun close()
     {
         gatekeeper.interrupt()
-        firewallManipulator.interrupt()
         accepter.interrupt()
     }
 
@@ -156,10 +154,10 @@ class PortKnockServer(
                 val ipPacket = null
                     ?: packet.get(IpV4Packet::class.java)
                     ?: packet.get(IpV6Packet::class.java)
-                    ?: continue
+                    ?: throw RuntimeException("unknown network-level protocol")
                 val udpPacket = null
                     ?: ipPacket.get(UdpPacket::class.java)
-                    ?: continue
+                    ?: throw RuntimeException("unknown transport-level protocol")
 
                 // decrypt the payload
                 val (challenge,encodedPublicKey) = run {
@@ -178,9 +176,8 @@ class PortKnockServer(
                 // check that the challenge is as expected
                 if (clientInfo.challenge != challenge) continue
 
-                // port knock is authorized, notify the accepter and
-                // firewall manipulator threads of authorized client
-                run {
+                // port knock is authorized, allow the connection signature
+                thread(name = "${this@PortKnockServer}.gatekeeper.subthread") {
                     val clientIpAddress = when (ipPacket)
                     {
                         is IpV4Packet -> ipPacket.header.srcAddr
@@ -189,114 +186,12 @@ class PortKnockServer(
                     }
                     val clientSrcPort = udpPacket.header.srcPort.valueAsInt()
                     val connectionSignature = ConnectionSignature(clientIpAddress,clientSrcPort,knockPort)
-                    firewallManipulator.allowCommand(connectionSignature,clientInfo,PORT_KNOCK_CLEARANCE_INTERVAL)
+                    accepter.expectedClientInfos[connectionSignature] = clientInfo
+                    firewall.allow(connectionSignature)
+                    sleep(PORT_KNOCK_CLEARANCE_INTERVAL)
+                    firewall.disallow(connectionSignature)
+                    accepter.expectedClientInfos.remove(connectionSignature)
                 }
-            }
-        }
-    }
-
-    private val firewallManipulator = object:Thread()
-    {
-        private val delayQueue = DelayQueue<Command>()
-
-        /**
-         * used to keep track of how many times each connection signature has
-         * been requested to be opened so that when the requests for a
-         * connection signature becomes 0 or is changed and was 0, we can
-         * properly invoke methods on [firewall] and not accidentally allow or
-         * disallow a connection signature multiple times.
-         */
-        private val openCount = LinkedHashMap<ConnectionSignature,Pair<ClientInfo,Int>>()
-
-        val allowedConnectionSignatures:Map<ConnectionSignature,ClientInfo> get()
-        {
-            return openCount.mapValues {it.value.first}
-        }
-
-        init
-        {
-            name = "${this@PortKnockServer}.firewallManipulator"
-            start()
-        }
-
-        fun allowCommand(connectionSignature:ConnectionSignature,clientInfo:ClientInfo,clearanceInterval:Long)
-        {
-            Command.Open(connectionSignature,clientInfo,clearanceInterval,0)
-                .run {delayQueue.put(this)}
-        }
-
-        private fun disallowCommand(connectionSignature:ConnectionSignature,clientInfo:ClientInfo,delayMillis:Long)
-        {
-            Command.Close(connectionSignature,clientInfo,delayMillis)
-                .run {delayQueue.put(this)}
-        }
-
-        private fun exitCommand()
-        {
-            Command.Exit(0)
-                .run {delayQueue.put(this)}
-        }
-
-        override fun interrupt()
-        {
-            // end thread
-            exitCommand()
-            join()
-
-            // disallow all allowed connection signatures
-            for (connectionSignature in openCount.keys)
-            {
-                firewall.disallow(connectionSignature)
-            }
-        }
-
-        override fun run()
-        {
-            while (true)
-            {
-                // dequeue commands from delay queue and execute them
-                val command = delayQueue.take()
-                when (command)
-                {
-                    is Command.Open ->
-                    {
-                        // increment request count for connection signature
-                        val prev = openCount[command.connectionSignature] ?: command.clientInfo to 0
-                        openCount[command.connectionSignature] = prev.copy(second = prev.second+1)
-
-                        // allow connections with the connection signature to
-                        // connect only when the count goes from 0 to 1 because
-                        // we do not want to allow it multiple times as that can
-                        // mess up some firewalls.
-                        if (prev.second == 0)
-                        {
-                            firewall.allow(command.connectionSignature)
-                            disallowCommand(command.connectionSignature,command.clientInfo,command.clearanceInterval)
-                        }
-                        Unit
-                    }
-                    is Command.Close ->
-                    {
-                        // decrement request count for connection signature
-                        val prev = openCount[command.connectionSignature] ?: throw RuntimeException("counts should never go negative")
-                        openCount[command.connectionSignature] = prev.copy(second = prev.second-1)
-                        if (openCount[command.connectionSignature]?.second == 0)
-                        {
-                            openCount.remove(command.connectionSignature)
-                        }
-
-                        // disallow connections with the connection signature to
-                        // connect only when the count goes from 1 to 0 because
-                        // we do not want to disallow it multiple times as that
-                        // can mess up some firewalls.
-                        if (prev.second == 1)
-                        {
-                            firewall.disallow(command.connectionSignature)
-                        }
-                        Unit
-                    }
-                    is Command.Exit -> return
-                }.apply {/*force exhaustive when statement*/}
             }
         }
     }
@@ -306,6 +201,10 @@ class PortKnockServer(
         private val tcpServer = TcpServer(controlPort)
 
         private var interrupted = false
+
+        private val randomGenerator = Random()
+
+        val expectedClientInfos = LinkedHashMap<ConnectionSignature,ClientInfo>()
 
         init
         {
@@ -340,9 +239,9 @@ class PortKnockServer(
                     tcpConnection.socket.inetAddress,
                     tcpConnection.socket.port,
                     tcpConnection.socket.localPort)
-                try {
-                    check(connectionSignature in firewallManipulator.allowedConnectionSignatures.keys)
-                } catch (ex:IllegalStateException) {
+                val clientInfo = expectedClientInfos[connectionSignature]
+                if (clientInfo == null)
+                {
                     tcpConnection.close()
                     continue
                 }
@@ -350,36 +249,20 @@ class PortKnockServer(
                 // authenticate the connection
                 val rsaConnection = EncryptedConnection(
                     tcpConnection,
-                    firewallManipulator.allowedConnectionSignatures[connectionSignature]!!.publicKey.toByteArray(),
-                    keyPair.private.encoded.toList().toByteArray())
+                    clientInfo.publicKey.toByteArray(),
+                    keyPair.private.encoded)
+
+                // generate and update challenge for subsequent connection
+                run {
+                    val sign = if (randomGenerator.nextBoolean()) 1 else -1
+                    val challenge = randomGenerator.nextLong()*sign
+                    rsaConnection.outputStream.let(::DataOutputStream).writeLong(challenge)
+                    authorizedClients[clientInfo.publicKey] = clientInfo.copy(challenge = challenge)
+                }
 
                 // handle its requests in a separate thread until it disconnects
                 thread {ClientSession(rsaConnection,executorService).run()}
             }
-        }
-    }
-
-    /**
-     * commands used by the [firewallManipulator].
-     */
-    private sealed class Command(timeout:Long):Delayed
-    {
-        class Open(val connectionSignature:ConnectionSignature,val clientInfo:ClientInfo,val clearanceInterval:Long,delayMillis:Long):Command(delayMillis)
-        class Close(val connectionSignature:ConnectionSignature,val clientInfo:ClientInfo,delayMillis:Long):Command(delayMillis)
-        class Exit(delayMillis:Long):Command(delayMillis)
-
-        val expireTime = System.currentTimeMillis()+timeout
-
-        override fun compareTo(other:Delayed):Int
-        {
-            return (getDelay(TimeUnit.MILLISECONDS)-other.getDelay(TimeUnit.MILLISECONDS))
-                .coerceIn(-1L..1L)
-                .toInt()
-        }
-
-        override fun getDelay(unit:TimeUnit):Long
-        {
-            return unit.convert(expireTime-System.currentTimeMillis(),TimeUnit.MILLISECONDS)
         }
     }
 }

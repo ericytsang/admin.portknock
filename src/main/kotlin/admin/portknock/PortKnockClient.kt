@@ -1,21 +1,22 @@
 package admin.portknock
 
-import com.github.ericytsang.lib.net.host.RsaHost
+import com.github.ericytsang.lib.net.connection.EncryptedConnection
 import com.github.ericytsang.lib.net.host.TcpClient
 import java.io.ByteArrayOutputStream
+import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.security.KeyPair
 import javax.crypto.Cipher
 
-class PortKnockClient(val keyPair:KeyPair)
+object PortKnockClient
 {
     /**
      * performs a port knock on the server inferred from [serverInfo] then tries
      * to establish a connection and authenticate with it.
      */
-    fun connect(serverInfo:ServerInfo):ServerSession
+    fun connect(persister:(ServerInfo)->Unit,serverInfo:ServerInfo,keyPair:KeyPair):ServerSession
     {
         // do the port knock
         val localPort = run {
@@ -47,15 +48,25 @@ class PortKnockClient(val keyPair:KeyPair)
             }
         }
 
-        // create the secure connection with the port knock server
-        val portKnockServerConnection = run {
+        // create a TCP connection with the port knock server
+        val tcpConnection = run {
             val serverCtlAddr = TcpClient.Address(serverInfo.ipAddress,serverInfo.controlPort)
-            RsaHost().connect(RsaHost.Address(
-                {TcpClient.srcPort(localPort).connect(serverCtlAddr)},
-                serverInfo.publicKey,
-                keyPair.private.encoded.toList()))
+            TcpClient.srcPort(localPort).connect(serverCtlAddr)
         }
 
-        return ServerSession(portKnockServerConnection)
+        // authenticate the connection
+        val rsaConnection = EncryptedConnection(
+            tcpConnection,
+            serverInfo.publicKey.toByteArray(),
+            keyPair.private.encoded)
+
+        // receive and update challenge for subsequent connection
+        run {
+            val challenge = rsaConnection.inputStream.let(::DataInputStream).readLong()
+            persister(serverInfo.copy(challenge = challenge))
+        }
+
+        // return an object representing the connection
+        return ServerSession(rsaConnection)
     }
 }

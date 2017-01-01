@@ -13,7 +13,6 @@ import java.io.ByteArrayInputStream
 import java.io.Closeable
 import java.io.DataInputStream
 import java.io.DataOutputStream
-import java.net.InetAddress
 import java.security.KeyPair
 import java.util.LinkedHashMap
 import java.util.Random
@@ -56,29 +55,6 @@ class PortKnockServer(
         operator fun get(publicKey:List<Byte>):ClientInfo?
         operator fun set(publicKey:List<Byte>,client:ClientInfo)
         val keys:Set<List<Byte>>
-    }
-
-    interface Firewall
-    {
-        fun allow(connectionSignature:ConnectionSignature)
-        fun disallow(connectionSignature:ConnectionSignature)
-    }
-
-    data class ConnectionSignature(val remoteIpAddress:InetAddress,val remotePort:Int?,val localPort:Int)
-    {
-        override fun hashCode():Int
-        {
-            return remoteIpAddress.hashCode()+localPort
-        }
-
-        override fun equals(other:Any?):Boolean
-        {
-            return other is ConnectionSignature
-                && other.remoteIpAddress == remoteIpAddress
-                && other.localPort == localPort
-                && (other.remotePort == remotePort
-                || (other.remotePort == null || remotePort == null))
-        }
     }
 
     /**
@@ -185,7 +161,8 @@ class PortKnockServer(
                         else -> throw RuntimeException("unhandled case")
                     }
                     val clientSrcPort = udpPacket.header.srcPort.valueAsInt()
-                    val connectionSignature = ConnectionSignature(clientIpAddress,clientSrcPort,knockPort)
+                    val connectionSignature = ConnectionSignature.createSet(
+                        clientIpAddress,clientSrcPort,controlPort)
                     accepter.expectedClientInfos[connectionSignature] = clientInfo
                     firewall.allow(connectionSignature)
                     sleep(PORT_KNOCK_CLEARANCE_INTERVAL)
@@ -204,7 +181,7 @@ class PortKnockServer(
 
         private val randomGenerator = Random()
 
-        val expectedClientInfos = LinkedHashMap<ConnectionSignature,ClientInfo>()
+        val expectedClientInfos = LinkedHashMap<Set<ConnectionSignature>,ClientInfo>()
 
         init
         {
@@ -235,7 +212,7 @@ class PortKnockServer(
                 }
 
                 // check if the connection is authorized
-                val connectionSignature = ConnectionSignature(
+                val connectionSignature = ConnectionSignature.createSet(
                     tcpConnection.socket.inetAddress,
                     tcpConnection.socket.port,
                     tcpConnection.socket.localPort)
@@ -256,12 +233,21 @@ class PortKnockServer(
                 run {
                     val sign = if (randomGenerator.nextBoolean()) 1 else -1
                     val challenge = randomGenerator.nextLong()*sign
-                    rsaConnection.outputStream.let(::DataOutputStream).writeLong(challenge)
-                    authorizedClients[clientInfo.publicKey] = clientInfo.copy(challenge = challenge)
+                    rsaConnection.outputStream.let(::DataOutputStream)
+                        .writeLong(challenge)
+                    authorizedClients[clientInfo.publicKey] =
+                        clientInfo.copy(challenge = challenge)
                 }
 
                 // handle its requests in a separate thread until it disconnects
-                thread {ClientSession(rsaConnection,executorService).run()}
+                thread {
+                    ClientSession(
+                        rsaConnection,
+                        tcpConnection.socket.inetAddress,
+                        firewall,
+                        executorService)
+                        .run()
+                }
             }
         }
     }

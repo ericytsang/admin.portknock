@@ -12,11 +12,9 @@ class ServerSession(val connection:Connection):Closeable
     fun requestTcpConnectClearance(remotePort:Int):Closeable
     {
         val connection = modem.connect(Unit)
-        connection.outputStream.let(::DataOutputStream).use()
-        {
-            dataO ->
-
-        }// todo
+        val dataO = connection.outputStream.let(::DataOutputStream)
+        dataO.writeInt(remotePort)
+        return dataO
     }
 
     override fun close()

@@ -1,9 +1,7 @@
 package admin.portknock
 
 import com.github.ericytsang.lib.net.connection.Connection
-import org.pcap4j.core.BpfProgram
-import org.pcap4j.core.PacketListener
-import org.pcap4j.core.Pcaps
+import com.github.ericytsang.lib.net.connection.EncryptedConnection
 import org.pcap4j.packet.IpV4Packet
 import org.pcap4j.packet.IpV6Packet
 import org.pcap4j.packet.Packet
@@ -15,10 +13,8 @@ import java.io.DataOutputStream
 import java.security.KeyPair
 import java.util.LinkedHashMap
 import java.util.Random
-import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.locks.ReentrantLock
 import javax.crypto.Cipher
-import kotlin.concurrent.thread
 import kotlin.concurrent.withLock
 
 class PortKnockServer(
@@ -47,7 +43,7 @@ class PortKnockServer(
 
     override fun close()
     {
-        portKnockListener.interrupt()
+        portKnockListener.close()
         secureServer.close()
     }
 
@@ -62,109 +58,51 @@ class PortKnockServer(
      * listens for port knocks. notifies the accepter thread upon receiving an
      * authorized port knock.
      */
-    private val portKnockListener = object:Thread()
+    private val portKnockListener = object:NetworkSniffer(PORT_KNOCK_BACKLOG_Q_SIZE,"udp[2:2] = $knockPort")
     {
         private val decipherer = Cipher.getInstance("RSA").apply()
         {
             init(Cipher.DECRYPT_MODE,keyPair.private)
         }
 
-        // todo: what if nics are added or removed to or from the computer?
-        // fixme: if more are added after this is run, they will not be monitored!
-        private val nics = Pcaps.findAllDevs().map() {it.open()}
-
-        private val packets = ArrayBlockingQueue<Packet>(PORT_KNOCK_BACKLOG_Q_SIZE)
-
-        private var interrupted = false
-
-        init
+        override fun handlePacket(packet:Packet)
         {
-            // listen for UDP packets on all NICs on the knocking port
-            val packetListener = PacketListener {packets.put(it)}
-            for (nic in nics)
-            {
-                nic.setFilter("udp[2:2] = $knockPort",BpfProgram.BpfCompileMode.OPTIMIZE)
-                thread {
-                    // loop forever until...
-                    try
-                    {
-                        nic.loop(-1,packetListener)
-                    }
+            val ipPacket = null
+                ?: packet.get(IpV4Packet::class.java)
+                ?: packet.get(IpV6Packet::class.java)
+                ?: throw RuntimeException("unknown network-level protocol")
+            val udpPacket = null
+                ?: ipPacket.get(UdpPacket::class.java)
+                ?: throw RuntimeException("unknown transport-level protocol")
 
-                    // rethrow exception if exited not on purpose
-                    catch (ex:Exception)
-                    {
-                        if (!interrupted) throw ex
-                    }
-                }
+            // decrypt the payload
+            val (challenge,encodedPublicKey) = run {
+                val dataI = decipherer.doFinal(udpPacket.payload.rawData)
+                    .let(::ByteArrayInputStream)
+                    .let(::DataInputStream)
+                val challenge = dataI.readLong()
+                val encodedPublicKey = ByteArray(dataI.available())
+                dataI.readFully(encodedPublicKey)
+                Pair(challenge,encodedPublicKey.toList())
             }
 
-            // start the thread
-            name = "${this@PortKnockServer}.gatekeeper"
-            start()
-        }
+            // check that the public key is white-listed
+            val clientInfo = authorizedClients[encodedPublicKey] ?: return
 
-        override fun interrupt()
-        {
-            interrupted = true
-            nics.forEach {it.breakLoop()}
-            nics.forEach {it.close()}
-            super.interrupt()
-        }
+            // check that the challenge is as expected
+            if (clientInfo.challenge != challenge) return
 
-        override fun run()
-        {
-            while (true)
+            // port knock is authorized, allow the connection signature
+            val clientIpAddress = when (ipPacket)
             {
-
-                // when a UDP packet is received, check if it is authorized
-                val packet = try
-                {
-                    packets.take()
-                }
-                catch (ex:Exception)
-                {
-                    // rethrow exception if exited not on purpose
-                    if (!interrupted) throw ex
-                    else return
-                }
-                val ipPacket = null
-                    ?: packet.get(IpV4Packet::class.java)
-                    ?: packet.get(IpV6Packet::class.java)
-                    ?: throw RuntimeException("unknown network-level protocol")
-                val udpPacket = null
-                    ?: ipPacket.get(UdpPacket::class.java)
-                    ?: throw RuntimeException("unknown transport-level protocol")
-
-                // decrypt the payload
-                val (challenge,encodedPublicKey) = run {
-                    val dataI = decipherer.doFinal(udpPacket.payload.rawData)
-                        .let(::ByteArrayInputStream)
-                        .let(::DataInputStream)
-                    val challenge = dataI.readLong()
-                    val encodedPublicKey = ByteArray(dataI.available())
-                    dataI.readFully(encodedPublicKey)
-                    Pair(challenge,encodedPublicKey.toList())
-                }
-
-                // check that the public key is white-listed
-                val clientInfo = authorizedClients[encodedPublicKey] ?: continue
-
-                // check that the challenge is as expected
-                if (clientInfo.challenge != challenge) continue
-
-                // port knock is authorized, allow the connection signature
-                val clientIpAddress = when (ipPacket)
-                {
-                    is IpV4Packet -> ipPacket.header.srcAddr
-                    is IpV6Packet -> ipPacket.header.srcAddr
-                    else -> throw RuntimeException("unhandled case")
-                }
-                val clientSrcPort = udpPacket.header.srcPort.valueAsInt()
-                val connectionSignature = ConnectionSignature.createSet(
-                    clientIpAddress,clientSrcPort,controlPort)
-                allow(connectionSignature,clientInfo)
+                is IpV4Packet -> ipPacket.header.srcAddr
+                is IpV6Packet -> ipPacket.header.srcAddr
+                else -> throw RuntimeException("unhandled case")
             }
+            val clientSrcPort = udpPacket.header.srcPort.valueAsInt()
+            val connectionSignature = ConnectionSignature.createSet(
+                clientIpAddress,clientSrcPort,controlPort)
+            allow(connectionSignature,clientInfo)
         }
     }
 
@@ -205,7 +143,10 @@ class PortKnockServer(
             firewallManipulatorsLock.withLock()
             {
                 firewallManipulators[connectionSignatures] = this
-                connectionSignatures.forEach {secureServer.authorizedPublicKeys[it] = clientInfo.publicKey.toByteArray()}
+                connectionSignatures.forEach {
+                    secureServer.connectionSignatureToPublicKey[it] = clientInfo.publicKey.toByteArray()
+                    secureServer.authorizedConnectionSignatures += it
+                }
                 firewall.allow(connectionSignatures)
             }
             while (true)
@@ -222,31 +163,35 @@ class PortKnockServer(
             }
             firewallManipulatorsLock.withLock()
             {
-                firewallManipulators.remove(connectionSignatures)
                 firewall.disallow(connectionSignatures)
-                connectionSignatures.forEach {secureServer.authorizedPublicKeys.remove(it)}
+                connectionSignatures.forEach {
+                    secureServer.connectionSignatureToPublicKey.remove(it)
+                    secureServer.authorizedConnectionSignatures -= it
+                }
+                firewallManipulators.remove(connectionSignatures)
             }
         }
     }
 
-    private val secureServer = object:SecureServer(AUTHENTICATION_TIMEOUT,controlPort,keyPair.private.encoded)
+    private val secureServer = object:SecureServer(controlPort)
     {
-        val authorizedPublicKeys = LinkedHashMap<ConnectionSignature,ByteArray>()
+        val connectionSignatureToPublicKey = LinkedHashMap<ConnectionSignature,ByteArray>()
 
         private val randomGenerator = Random()
 
-        override fun resolvePublicKey(connectionSignature:ConnectionSignature):ByteArray?
+        override fun handleConnection(connection:Connection,connectionSignature:ConnectionSignature)
         {
-            return authorizedPublicKeys[connectionSignature]
-        }
+            val publicKey = connectionSignatureToPublicKey[connectionSignature]!!
 
-        override fun handleConnection(connection:Connection,connectionSignature:ConnectionSignature,publicKey:ByteArray)
-        {
+            // authenticate the connection
+            val encryptedConnection = EncryptedConnection(connection,publicKey,
+                keyPair.private.encoded,AUTHENTICATION_TIMEOUT)
+
             // generate and update challenge for subsequent connection
             run {
                 val sign = if (randomGenerator.nextBoolean()) 1 else -1
                 val challenge = randomGenerator.nextLong()*sign
-                val dataO = connection.outputStream.let(::DataOutputStream)
+                val dataO = encryptedConnection.outputStream.let(::DataOutputStream)
                 dataO.writeLong(challenge)
                 dataO.flush()
                 val clientInfo = authorizedClients[publicKey.toList()]!!
@@ -254,8 +199,9 @@ class PortKnockServer(
             }
 
             // handle its requests in a separate thread until it disconnects
-            ClientSession(connection,connectionSignature.remoteIpAddress,firewall)
+            ClientSession(encryptedConnection,connectionSignature.remoteIpAddress,firewall)
                 .let(::Thread).start()
         }
     }
 }
+

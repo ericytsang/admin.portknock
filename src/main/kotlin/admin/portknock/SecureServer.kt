@@ -4,8 +4,9 @@ import com.github.ericytsang.lib.net.connection.Connection
 import com.github.ericytsang.lib.net.connection.EncryptedConnection
 import com.github.ericytsang.lib.net.host.TcpServer
 import java.io.Closeable
+import java.util.LinkedHashSet
 
-abstract class SecureServer(val authenticationTimeout:Long,val listenPort:Int,val decodingKey:ByteArray):Closeable
+abstract class SecureServer(val listenPort:Int):Closeable
 {
     override fun close()
     {
@@ -13,9 +14,9 @@ abstract class SecureServer(val authenticationTimeout:Long,val listenPort:Int,va
         workerThread.join()
     }
 
-    abstract fun handleConnection(connection:Connection,connectionSignature:ConnectionSignature,publicKey:ByteArray)
+    val authorizedConnectionSignatures:MutableSet<ConnectionSignature> = LinkedHashSet()
 
-    abstract fun resolvePublicKey(connectionSignature:ConnectionSignature):ByteArray?
+    protected abstract fun handleConnection(connection:Connection,connectionSignature:ConnectionSignature)
 
     private val workerThread = object:Thread()
     {
@@ -55,20 +56,14 @@ abstract class SecureServer(val authenticationTimeout:Long,val listenPort:Int,va
                 val connectionSignature = ConnectionSignature.createObject(
                     tcpConnection.socket.inetAddress,tcpConnection.socket.port,
                     tcpConnection.socket.localPort)
-                val remotePublicKey = resolvePublicKey(connectionSignature)
-                if (remotePublicKey == null)
+                if (connectionSignature !in authorizedConnectionSignatures)
                 {
                     tcpConnection.close()
                     continue
                 }
 
-                // authenticate the connection
-                val encryptedConnection = EncryptedConnection(tcpConnection,
-                    remotePublicKey,decodingKey,authenticationTimeout)
-
                 // pass connection to handler for handling
-                handleConnection(encryptedConnection,connectionSignature,
-                    remotePublicKey)
+                handleConnection(tcpConnection,connectionSignature)
             }
         }
     }

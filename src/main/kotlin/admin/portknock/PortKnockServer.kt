@@ -224,7 +224,7 @@ class PortKnockServer(
                 }
 
                 // authenticate the connection
-                val rsaConnection = EncryptedConnection(
+                val encryptedConnection = EncryptedConnection(
                     tcpConnection,
                     clientInfo.publicKey.toByteArray(),
                     keyPair.private.encoded,
@@ -234,8 +234,9 @@ class PortKnockServer(
                 run {
                     val sign = if (randomGenerator.nextBoolean()) 1 else -1
                     val challenge = randomGenerator.nextLong()*sign
-                    rsaConnection.outputStream.let(::DataOutputStream)
-                        .writeLong(challenge)
+                    val dataO = encryptedConnection.outputStream.let(::DataOutputStream)
+                    dataO.writeLong(challenge)
+                    dataO.flush()
                     authorizedClients[clientInfo.publicKey] =
                         clientInfo.copy(challenge = challenge)
                 }
@@ -243,7 +244,7 @@ class PortKnockServer(
                 // handle its requests in a separate thread until it disconnects
                 thread {
                     ClientSession(
-                        rsaConnection,
+                        encryptedConnection,
                         tcpConnection.socket.inetAddress,
                         firewall)
                         .run()

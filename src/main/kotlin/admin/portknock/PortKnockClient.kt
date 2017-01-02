@@ -30,7 +30,7 @@ object PortKnockClient
 
             // encrypt raw data
             val encryptor = Cipher.getInstance("RSA")
-            encryptor.init(Cipher.ENCRYPT_MODE,keyPair.public)
+            encryptor.init(Cipher.ENCRYPT_MODE,serverInfo.publicKeyAsPublicKey)
             val udpPayload = encryptor.doFinal(rawData)
 
             // pack encrypted raw data into udp packet

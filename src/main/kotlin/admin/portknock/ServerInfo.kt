@@ -9,7 +9,7 @@ import java.util.ArrayList
 
 data class ServerInfo(val challenge:Long,val friendlyName:String,val ipAddress:InetAddress,val publicKey:ArrayList<Byte>,val knockPort:Int,val controlPort:Int):Serializable
 {
-    val publicKeyAsPublicKey:PublicKey get()
+    val publicKeyAsRsaPublicKey:PublicKey get()
     {
         return KeyFactory.getInstance("RSA")
             .generatePublic(X509EncodedKeySpec(publicKey.toByteArray()))

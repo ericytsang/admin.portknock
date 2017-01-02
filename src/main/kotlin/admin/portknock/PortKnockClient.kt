@@ -50,14 +50,14 @@ object PortKnockClient
         }
 
         // create a TCP connection with the port knock server
-        sleep(1000) // todo remove after debug is over
+        sleep(3000) // todo remove after debug is over
         val tcpConnection = run {
             val serverCtlAddr = TcpClient.Address(serverInfo.ipAddress,serverInfo.controlPort)
             TcpClient.srcPort(localPort).connect(serverCtlAddr)
         }
 
         // authenticate the connection
-        val rsaConnection = EncryptedConnection(
+        val encryptedConnection = EncryptedConnection(
             tcpConnection,
             serverInfo.publicKey.toByteArray(),
             keyPair.private.encoded,
@@ -65,11 +65,11 @@ object PortKnockClient
 
         // receive and update challenge for subsequent connection
         run {
-            val challenge = rsaConnection.inputStream.let(::DataInputStream).readLong()
+            val challenge = encryptedConnection.inputStream.let(::DataInputStream).readLong()
             persister(serverInfo.copy(challenge = challenge))
         }
 
         // return an object representing the connection
-        return ServerSession(rsaConnection)
+        return ServerSession(encryptedConnection)
     }
 }

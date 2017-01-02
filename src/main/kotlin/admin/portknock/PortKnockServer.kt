@@ -68,7 +68,7 @@ class PortKnockServer(
         }
 
         // todo: what if nics are added or removed to or from the computer?
-        // fixme: if more are added while this is running, they will not be monitored!
+        // fixme: if more are added after this is run, they will not be monitored!
         private val nics = Pcaps.findAllDevs().map() {it.open()}
 
         private val packets = ArrayBlockingQueue<Packet>(PORT_KNOCK_BACKLOG_Q_SIZE)

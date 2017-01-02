@@ -1,7 +1,6 @@
 package admin.portknock
 
-import com.github.ericytsang.lib.net.connection.EncryptedConnection
-import com.github.ericytsang.lib.net.host.TcpServer
+import com.github.ericytsang.lib.net.connection.Connection
 import org.pcap4j.core.BpfProgram
 import org.pcap4j.core.PacketListener
 import org.pcap4j.core.Pcaps
@@ -17,8 +16,10 @@ import java.security.KeyPair
 import java.util.LinkedHashMap
 import java.util.Random
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.locks.ReentrantLock
 import javax.crypto.Cipher
 import kotlin.concurrent.thread
+import kotlin.concurrent.withLock
 
 class PortKnockServer(
     val authorizedClients:Persister,
@@ -46,8 +47,8 @@ class PortKnockServer(
 
     override fun close()
     {
-        gatekeeper.interrupt()
-        accepter.interrupt()
+        portKnockListener.interrupt()
+        secureServer.close()
     }
 
     interface Persister
@@ -61,7 +62,7 @@ class PortKnockServer(
      * listens for port knocks. notifies the accepter thread upon receiving an
      * authorized port knock.
      */
-    private val gatekeeper = object:Thread()
+    private val portKnockListener = object:Thread()
     {
         private val decipherer = Cipher.getInstance("RSA").apply()
         {
@@ -153,103 +154,108 @@ class PortKnockServer(
                 if (clientInfo.challenge != challenge) continue
 
                 // port knock is authorized, allow the connection signature
-                thread(name = "${this@PortKnockServer}.gatekeeper.subthread") {
-                    val clientIpAddress = when (ipPacket)
-                    {
-                        is IpV4Packet -> ipPacket.header.srcAddr
-                        is IpV6Packet -> ipPacket.header.srcAddr
-                        else -> throw RuntimeException("unhandled case")
-                    }
-                    val clientSrcPort = udpPacket.header.srcPort.valueAsInt()
-                    val connectionSignature = ConnectionSignature.createSet(
-                        clientIpAddress,clientSrcPort,controlPort)
-                    accepter.expectedClientInfos[connectionSignature] = clientInfo
-                    firewall.allow(connectionSignature)
-                    sleep(PORT_KNOCK_CLEARANCE_INTERVAL)
-                    firewall.disallow(connectionSignature)
-                    accepter.expectedClientInfos.remove(connectionSignature)
+                val clientIpAddress = when (ipPacket)
+                {
+                    is IpV4Packet -> ipPacket.header.srcAddr
+                    is IpV6Packet -> ipPacket.header.srcAddr
+                    else -> throw RuntimeException("unhandled case")
                 }
+                val clientSrcPort = udpPacket.header.srcPort.valueAsInt()
+                val connectionSignature = ConnectionSignature.createSet(
+                    clientIpAddress,clientSrcPort,controlPort)
+                allow(connectionSignature,clientInfo)
             }
         }
     }
 
-    private val accepter = object:Thread()
+    // todo: refactor firewall manipulator for readability and maintainabiltiy
+    private val firewallManipulators:MutableMap<Set<ConnectionSignature>,FirewallManipulator> = LinkedHashMap()
+    private val firewallManipulatorsLock = ReentrantLock()
+
+    private fun allow(connectionSignature:Set<ConnectionSignature>,client:ClientInfo):Unit = firewallManipulatorsLock.withLock()
     {
-        private val tcpServer = TcpServer(controlPort)
+        val existingThread = firewallManipulators[connectionSignature]
+        if (existingThread == null)
+        {
+            firewallManipulators[connectionSignature] = FirewallManipulator(connectionSignature,client)
+        }
+        else
+        {
+            existingThread.renew()
+        }
+    }
 
-        private var interrupted = false
-
-        private val randomGenerator = Random()
-
-        val expectedClientInfos = LinkedHashMap<Set<ConnectionSignature>,ClientInfo>()
-
+    private inner class FirewallManipulator(val connectionSignatures:Set<ConnectionSignature>,val clientInfo:ClientInfo):Thread()
+    {
         init
         {
-            name = "${this@PortKnockServer}.accepter"
+            name = "${this@PortKnockServer}.gatekeeper.subthread"
             start()
         }
 
-        override fun interrupt()
+        fun renew()
         {
-            interrupted = true
-            tcpServer.close()
+            require(firewallManipulatorsLock.isHeldByCurrentThread)
+            require(firewallManipulators[connectionSignatures] == this)
+            interrupt()
         }
 
         override fun run()
         {
+            firewallManipulatorsLock.withLock()
+            {
+                firewallManipulators[connectionSignatures] = this
+                connectionSignatures.forEach {secureServer.authorizedPublicKeys[it] = clientInfo.publicKey.toByteArray()}
+                firewall.allow(connectionSignatures)
+            }
             while (true)
             {
-                // accept a connection
-                val tcpConnection = try
+                try
                 {
-                    tcpServer.accept()
+                    sleep(PORT_KNOCK_CLEARANCE_INTERVAL)
+                    break
                 }
-                catch (ex:Exception)
+                catch (ex:InterruptedException)
                 {
-                    // rethrow exception if it is unexpected
-                    if (!interrupted) throw ex
-                    else return
-                }
-
-                // check if the connection is authorized
-                val connectionSignature = ConnectionSignature.createSet(
-                    tcpConnection.socket.inetAddress,
-                    tcpConnection.socket.port,
-                    tcpConnection.socket.localPort)
-                val clientInfo = expectedClientInfos[connectionSignature]
-                if (clientInfo == null)
-                {
-                    tcpConnection.close()
                     continue
                 }
-
-                // authenticate the connection
-                val encryptedConnection = EncryptedConnection(
-                    tcpConnection,
-                    clientInfo.publicKey.toByteArray(),
-                    keyPair.private.encoded,
-                    AUTHENTICATION_TIMEOUT)
-
-                // generate and update challenge for subsequent connection
-                run {
-                    val sign = if (randomGenerator.nextBoolean()) 1 else -1
-                    val challenge = randomGenerator.nextLong()*sign
-                    val dataO = encryptedConnection.outputStream.let(::DataOutputStream)
-                    dataO.writeLong(challenge)
-                    dataO.flush()
-                    authorizedClients[clientInfo.publicKey] =
-                        clientInfo.copy(challenge = challenge)
-                }
-
-                // handle its requests in a separate thread until it disconnects
-                thread {
-                    ClientSession(
-                        encryptedConnection,
-                        tcpConnection.socket.inetAddress,
-                        firewall)
-                        .run()
-                }
             }
+            firewallManipulatorsLock.withLock()
+            {
+                firewallManipulators.remove(connectionSignatures)
+                firewall.disallow(connectionSignatures)
+                connectionSignatures.forEach {secureServer.authorizedPublicKeys.remove(it)}
+            }
+        }
+    }
+
+    private val secureServer = object:SecureServer(AUTHENTICATION_TIMEOUT,controlPort,keyPair.private.encoded)
+    {
+        val authorizedPublicKeys = LinkedHashMap<ConnectionSignature,ByteArray>()
+
+        private val randomGenerator = Random()
+
+        override fun resolvePublicKey(connectionSignature:ConnectionSignature):ByteArray?
+        {
+            return authorizedPublicKeys[connectionSignature]
+        }
+
+        override fun handleConnection(connection:Connection,connectionSignature:ConnectionSignature,publicKey:ByteArray)
+        {
+            // generate and update challenge for subsequent connection
+            run {
+                val sign = if (randomGenerator.nextBoolean()) 1 else -1
+                val challenge = randomGenerator.nextLong()*sign
+                val dataO = connection.outputStream.let(::DataOutputStream)
+                dataO.writeLong(challenge)
+                dataO.flush()
+                val clientInfo = authorizedClients[publicKey.toList()]!!
+                authorizedClients[publicKey.toList()] = clientInfo.copy(challenge = challenge)
+            }
+
+            // handle its requests in a separate thread until it disconnects
+            ClientSession(connection,connectionSignature.remoteIpAddress,firewall)
+                .let(::Thread).start()
         }
     }
 }

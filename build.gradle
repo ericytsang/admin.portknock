@@ -27,7 +27,7 @@ repositories {
 
 dependencies {
 
-    compile "com.github.ericytsang:lib.net:1.2.3"
+    compile "com.github.ericytsang:lib.net:1.2.4"
     compile "com.github.ericytsang:lib.modem:1.0.1"
 
     compile 'org.slf4j:slf4j-simple:1.7.21'

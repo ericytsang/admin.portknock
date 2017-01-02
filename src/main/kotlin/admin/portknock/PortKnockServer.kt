@@ -26,8 +26,7 @@ class PortKnockServer(
     val firewall:Firewall,
     val keyPair:KeyPair,
     val knockPort:Int,
-    val controlPort:Int,
-    val executorService:ExecutorService):Closeable
+    val controlPort:Int):Closeable
 {
     companion object
     {
@@ -244,8 +243,7 @@ class PortKnockServer(
                     ClientSession(
                         rsaConnection,
                         tcpConnection.socket.inetAddress,
-                        firewall,
-                        executorService)
+                        firewall)
                         .run()
                 }
             }

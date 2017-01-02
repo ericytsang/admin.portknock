@@ -4,9 +4,8 @@ import com.github.ericytsang.lib.modem.Modem
 import com.github.ericytsang.lib.net.connection.Connection
 import java.io.DataInputStream
 import java.net.InetAddress
-import java.util.concurrent.ExecutorService
 
-class ClientSession(val connection:Connection,val clientIpAddress:InetAddress,val firewall:Firewall,val executorService:ExecutorService):Runnable
+class ClientSession(val connection:Connection,val clientIpAddress:InetAddress,val firewall:Firewall):Runnable
 {
     private val modem = Modem(connection)
 
@@ -16,7 +15,7 @@ class ClientSession(val connection:Connection,val clientIpAddress:InetAddress,va
         {
             val connection = modem.accept()
             val connectionHandler = ConnectionHandler(connection)
-            executorService.execute(connectionHandler) // todo: maybe use a thread instead of executor service?
+            Thread(connectionHandler).start()
         }
     }
 

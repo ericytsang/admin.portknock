@@ -4,7 +4,6 @@ import com.github.ericytsang.lib.concurrent.sleep
 import org.junit.Test
 import java.net.InetAddress
 import java.security.KeyPair
-import java.security.KeyPairGenerator
 import java.util.ArrayList
 
 class GeneralTest
@@ -22,16 +21,6 @@ class GeneralTest
         const val KNOCK_PORT = 51268
 
         const val CONTROL_PORT = 62513
-
-        private fun generateKeyPair(keySize:Int):KeyPair
-        {
-            val keyGen = KeyPairGenerator.getInstance("RSA")
-            keyGen.initialize(keySize)
-            val keyPair = keyGen.generateKeyPair()
-            println("encrypt key: ${keyPair.public.encoded.toHexString()}")
-            println("decrypt key: ${keyPair.private.encoded.toHexString()}")
-            return keyPair
-        }
     }
 
     val serverAddress = InetAddress.getByName("ennui")
@@ -83,6 +72,7 @@ class GeneralTest
                 SERVER_KEY_PAIR.public.encoded.mapTo(ArrayList()){it},
                 KNOCK_PORT,CONTROL_PORT),
             CLIENT_KEY_PAIR)
+        println("connected!")
         val closeable = session.requestTcpConnectClearance(22)
         sleep(5000)
         closeable.close()

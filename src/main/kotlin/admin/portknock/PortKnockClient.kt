@@ -1,7 +1,6 @@
 package admin.portknock
 
 import com.github.ericytsang.lib.concurrent.sleep
-import com.github.ericytsang.lib.net.connection.Connection
 import com.github.ericytsang.lib.net.connection.EncryptedConnection
 import com.github.ericytsang.lib.net.host.TcpClient
 import java.io.ByteArrayOutputStream
@@ -19,7 +18,7 @@ object PortKnockClient
 {
     private val MAX_TRY_COUNT:Int = 5
 
-    private val MAX_CONNECT_TRY_COUNT:Int = 10
+    private val FAILED_TO_CONNECT_SLEEP_MILLIS:Long = 1000
 
     /**
      * performs a port knock on the server inferred from [serverInfo] then tries
@@ -27,13 +26,13 @@ object PortKnockClient
      */
     fun connect(persister:(ServerInfo)->Unit,serverInfo:ServerInfo,keyPair:KeyPair):ServerSession
     {
+        // resolve unused local port
         val localPort = DatagramSocket().use {it.localPort}
 
         for (i in 1..MAX_TRY_COUNT)
         {
             // do the port knock
             run {
-
                 // create the raw data
                 val byteO = ByteArrayOutputStream()
                 val dataO = DataOutputStream(byteO)
@@ -47,17 +46,11 @@ object PortKnockClient
                 val udpPayload = encryptor.doFinal(rawData)
 
                 // pack encrypted raw data into udp packet
-                val udpPacket = DatagramPacket(
-                    udpPayload,
-                    udpPayload.size,
-                    serverInfo.ipAddress,
-                    serverInfo.knockPort)
+                val udpPacket = DatagramPacket(udpPayload,udpPayload.size,
+                    serverInfo.ipAddress,serverInfo.knockPort)
 
                 // do the port knock; send the udp packet
-                DatagramSocket(localPort).use {
-                    udpSocket ->
-                    udpSocket.send(udpPacket)
-                }
+                DatagramSocket(localPort).use {it.send(udpPacket)}
             }
 
             // create a TCP connection with the port knock server
@@ -81,13 +74,15 @@ object PortKnockClient
                 {
                     throw RuntimeException(ex)
                 }
-                sleep(1000)
+                sleep(FAILED_TO_CONNECT_SLEEP_MILLIS)
                 continue
             }
 
             // receive and update challenge for subsequent connection
-            val challenge = encryptedConnection.inputStream.let(::DataInputStream).readLong()
-            persister(serverInfo.copy(challenge = challenge))
+            run {
+                val challenge = encryptedConnection.inputStream.let(::DataInputStream).readLong()
+                persister(serverInfo.copy(challenge = challenge))
+            }
 
             // return an object representing the connection
             return ServerSession(encryptedConnection)

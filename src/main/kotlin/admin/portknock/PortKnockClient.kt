@@ -11,12 +11,15 @@ import java.net.ConnectException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.security.KeyPair
+import java.util.concurrent.TimeoutException
 import javax.crypto.Cipher
 import javax.security.sasl.AuthenticationException
 
 object PortKnockClient
 {
-    private val MAX_TRY_COUNT:Int = 5
+    private val MAX_KNOCK_TRY_COUNT:Int = 5
+
+    private val MAX_CONNECT_TRY_COUNT:Int = 10
 
     /**
      * performs a port knock on the server inferred from [serverInfo] then tries
@@ -24,7 +27,7 @@ object PortKnockClient
      */
     fun connect(persister:(ServerInfo)->Unit,serverInfo:ServerInfo,keyPair:KeyPair):ServerSession
     {
-        for (i in 1..MAX_TRY_COUNT)
+        for (i in 1..MAX_KNOCK_TRY_COUNT)
         {
             // do the port knock
             val localPort = run {
@@ -56,7 +59,7 @@ object PortKnockClient
                 }
             }
 
-            try
+            for (j in 1..MAX_CONNECT_TRY_COUNT)
             {
                 // create a TCP connection with the port knock server
                 val tcpConnection = run {
@@ -65,11 +68,23 @@ object PortKnockClient
                 }
 
                 // authenticate the connection
-                val encryptedConnection = EncryptedConnection(
-                    tcpConnection,
-                    serverInfo.publicKey.toByteArray(),
-                    keyPair.private.encoded,
-                    PortKnockServer.AUTHENTICATION_TIMEOUT)
+                val encryptedConnection = try
+                {
+                    EncryptedConnection(
+                        tcpConnection,
+                        serverInfo.publicKey.toByteArray(),
+                        keyPair.private.encoded,
+                        PortKnockServer.AUTHENTICATION_TIMEOUT)
+                }
+                catch (ex:Exception)
+                {
+                    require(ex is AuthenticationException || ex is TimeoutException)
+                    {
+                        throw RuntimeException(ex)
+                    }
+                    sleep(500)
+                    continue
+                }
 
                 // receive and update challenge for subsequent connection
                 val challenge = encryptedConnection.inputStream.let(::DataInputStream).readLong()
@@ -77,11 +92,6 @@ object PortKnockClient
 
                 // return an object representing the connection
                 return ServerSession(encryptedConnection)
-            }
-            catch (ex:Exception)
-            {
-                sleep(500)
-                continue
             }
         }
         throw ConnectException("failed to establish a connection with port knocking server")

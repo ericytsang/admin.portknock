@@ -60,7 +60,8 @@ object PortKnockClient
         val rsaConnection = EncryptedConnection(
             tcpConnection,
             serverInfo.publicKey.toByteArray(),
-            keyPair.private.encoded)
+            keyPair.private.encoded,
+            PortKnockServer.AUTHENTICATION_TIMEOUT)
 
         // receive and update challenge for subsequent connection
         run {

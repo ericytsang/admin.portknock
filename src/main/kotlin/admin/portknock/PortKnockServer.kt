@@ -41,6 +41,8 @@ class PortKnockServer(
          * control port when a port knock is successfully conducted.
          */
         const val PORT_KNOCK_CLEARANCE_INTERVAL:Long = 5000
+
+        const val AUTHENTICATION_TIMEOUT:Long = 20000
     }
 
     override fun close()
@@ -226,7 +228,8 @@ class PortKnockServer(
                 val rsaConnection = EncryptedConnection(
                     tcpConnection,
                     clientInfo.publicKey.toByteArray(),
-                    keyPair.private.encoded)
+                    keyPair.private.encoded,
+                    AUTHENTICATION_TIMEOUT)
 
                 // generate and update challenge for subsequent connection
                 run {

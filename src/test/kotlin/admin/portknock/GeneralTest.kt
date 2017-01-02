@@ -23,18 +23,18 @@ class GeneralTest
         const val CONTROL_PORT = 62513
     }
 
-    val serverAddress = InetAddress.getByName("ennui")
+    val serverAddress = InetAddress.getByName("192.168.1.91")
 
     val printFirewall = object:Firewall
     {
         override fun allow(connectionSignature:Set<ConnectionSignature>)
         {
-            println("allow $connectionSignature")
+            println("allow ${connectionSignature.first()}")
         }
 
         override fun disallow(connectionSignature:Set<ConnectionSignature>)
         {
-            println("disallow $connectionSignature")
+            println("disallow ${connectionSignature.first()}")
         }
     }
 

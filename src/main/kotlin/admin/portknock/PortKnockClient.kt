@@ -1,75 +1,89 @@
 package admin.portknock
 
 import com.github.ericytsang.lib.concurrent.sleep
+import com.github.ericytsang.lib.net.connection.Connection
 import com.github.ericytsang.lib.net.connection.EncryptedConnection
 import com.github.ericytsang.lib.net.host.TcpClient
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
+import java.net.ConnectException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.security.KeyPair
 import javax.crypto.Cipher
+import javax.security.sasl.AuthenticationException
 
 object PortKnockClient
 {
+    private val MAX_TRY_COUNT:Int = 5
+
     /**
      * performs a port knock on the server inferred from [serverInfo] then tries
      * to establish a connection and authenticate with it.
      */
     fun connect(persister:(ServerInfo)->Unit,serverInfo:ServerInfo,keyPair:KeyPair):ServerSession
     {
-        // do the port knock
-        val localPort = run {
+        for (i in 1..MAX_TRY_COUNT)
+        {
+            // do the port knock
+            val localPort = run {
 
-            // create the raw data
-            val byteO = ByteArrayOutputStream()
-            val dataO = DataOutputStream(byteO)
-            dataO.writeLong(serverInfo.challenge)
-            dataO.write(keyPair.public.encoded)
-            val rawData = byteO.toByteArray()
+                // create the raw data
+                val byteO = ByteArrayOutputStream()
+                val dataO = DataOutputStream(byteO)
+                dataO.writeLong(serverInfo.challenge)
+                dataO.write(keyPair.public.encoded)
+                val rawData = byteO.toByteArray()
 
-            // encrypt raw data
-            val encryptor = Cipher.getInstance("RSA")
-            encryptor.init(Cipher.ENCRYPT_MODE,serverInfo.publicKeyAsRsaPublicKey)
-            val udpPayload = encryptor.doFinal(rawData)
+                // encrypt raw data
+                val encryptor = Cipher.getInstance("RSA")
+                encryptor.init(Cipher.ENCRYPT_MODE,serverInfo.publicKeyAsRsaPublicKey)
+                val udpPayload = encryptor.doFinal(rawData)
 
-            // pack encrypted raw data into udp packet
-            val udpPacket = DatagramPacket(
-                udpPayload,
-                udpPayload.size,
-                serverInfo.ipAddress,
-                serverInfo.knockPort)
+                // pack encrypted raw data into udp packet
+                val udpPacket = DatagramPacket(
+                    udpPayload,
+                    udpPayload.size,
+                    serverInfo.ipAddress,
+                    serverInfo.knockPort)
 
-            // do the port knock; send the udp packet
-            DatagramSocket().use {
-                udpSocket ->
-                udpSocket.send(udpPacket)
-                udpSocket.localPort
+                // do the port knock; send the udp packet
+                DatagramSocket().use {
+                    udpSocket ->
+                    udpSocket.send(udpPacket)
+                    udpSocket.localPort
+                }
+            }
+
+            try
+            {
+                // create a TCP connection with the port knock server
+                val tcpConnection = run {
+                    val serverCtlAddr = TcpClient.Address(serverInfo.ipAddress,serverInfo.controlPort)
+                    TcpClient.srcPort(localPort).connect(serverCtlAddr)
+                }
+
+                // authenticate the connection
+                val encryptedConnection = EncryptedConnection(
+                    tcpConnection,
+                    serverInfo.publicKey.toByteArray(),
+                    keyPair.private.encoded,
+                    PortKnockServer.AUTHENTICATION_TIMEOUT)
+
+                // receive and update challenge for subsequent connection
+                val challenge = encryptedConnection.inputStream.let(::DataInputStream).readLong()
+                persister(serverInfo.copy(challenge = challenge))
+
+                // return an object representing the connection
+                return ServerSession(encryptedConnection)
+            }
+            catch (ex:Exception)
+            {
+                sleep(500)
+                continue
             }
         }
-
-        // create a TCP connection with the port knock server
-        sleep(3000) // todo remove after debug is over
-        val tcpConnection = run {
-            val serverCtlAddr = TcpClient.Address(serverInfo.ipAddress,serverInfo.controlPort)
-            TcpClient.srcPort(localPort).connect(serverCtlAddr)
-        }
-
-        // authenticate the connection
-        val encryptedConnection = EncryptedConnection(
-            tcpConnection,
-            serverInfo.publicKey.toByteArray(),
-            keyPair.private.encoded,
-            PortKnockServer.AUTHENTICATION_TIMEOUT)
-
-        // receive and update challenge for subsequent connection
-        run {
-            val challenge = encryptedConnection.inputStream.let(::DataInputStream).readLong()
-            persister(serverInfo.copy(challenge = challenge))
-        }
-
-        // return an object representing the connection
-        return ServerSession(encryptedConnection)
+        throw ConnectException("failed to establish a connection with port knocking server")
     }
 }

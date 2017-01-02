@@ -14,6 +14,7 @@ class ServerSession(val connection:Connection):Closeable
         val connection = modem.connect(Unit)
         val dataO = connection.outputStream.let(::DataOutputStream)
         dataO.writeInt(remotePort)
+        connection.outputStream.flush()
         return dataO
     }
 

@@ -17,7 +17,7 @@ import javax.security.sasl.AuthenticationException
 
 object PortKnockClient
 {
-    private val MAX_KNOCK_TRY_COUNT:Int = 5
+    private val MAX_TRY_COUNT:Int = 5
 
     private val MAX_CONNECT_TRY_COUNT:Int = 10
 
@@ -27,10 +27,12 @@ object PortKnockClient
      */
     fun connect(persister:(ServerInfo)->Unit,serverInfo:ServerInfo,keyPair:KeyPair):ServerSession
     {
-        for (i in 1..MAX_KNOCK_TRY_COUNT)
+        val localPort = DatagramSocket().use {it.localPort}
+
+        for (i in 1..MAX_TRY_COUNT)
         {
             // do the port knock
-            val localPort = run {
+            run {
 
                 // create the raw data
                 val byteO = ByteArrayOutputStream()
@@ -52,47 +54,43 @@ object PortKnockClient
                     serverInfo.knockPort)
 
                 // do the port knock; send the udp packet
-                DatagramSocket().use {
+                DatagramSocket(localPort).use {
                     udpSocket ->
                     udpSocket.send(udpPacket)
-                    udpSocket.localPort
                 }
             }
 
-            for (j in 1..MAX_CONNECT_TRY_COUNT)
+            // create a TCP connection with the port knock server
+            val tcpConnection = run {
+                val serverCtlAddr = TcpClient.Address(serverInfo.ipAddress,serverInfo.controlPort)
+                TcpClient.srcPort(localPort).connect(serverCtlAddr)
+            }
+
+            // authenticate the connection
+            val encryptedConnection = try
             {
-                // create a TCP connection with the port knock server
-                val tcpConnection = run {
-                    val serverCtlAddr = TcpClient.Address(serverInfo.ipAddress,serverInfo.controlPort)
-                    TcpClient.srcPort(localPort).connect(serverCtlAddr)
-                }
-
-                // authenticate the connection
-                val encryptedConnection = try
-                {
-                    EncryptedConnection(
-                        tcpConnection,
-                        serverInfo.publicKey.toByteArray(),
-                        keyPair.private.encoded,
-                        PortKnockServer.AUTHENTICATION_TIMEOUT)
-                }
-                catch (ex:Exception)
-                {
-                    require(ex is AuthenticationException || ex is TimeoutException)
-                    {
-                        throw RuntimeException(ex)
-                    }
-                    sleep(500)
-                    continue
-                }
-
-                // receive and update challenge for subsequent connection
-                val challenge = encryptedConnection.inputStream.let(::DataInputStream).readLong()
-                persister(serverInfo.copy(challenge = challenge))
-
-                // return an object representing the connection
-                return ServerSession(encryptedConnection)
+                EncryptedConnection(
+                    tcpConnection,
+                    serverInfo.publicKey.toByteArray(),
+                    keyPair.private.encoded,
+                    PortKnockServer.AUTHENTICATION_TIMEOUT)
             }
+            catch (ex:Exception)
+            {
+                require(ex is AuthenticationException || ex is TimeoutException)
+                {
+                    throw RuntimeException(ex)
+                }
+                sleep(1000)
+                continue
+            }
+
+            // receive and update challenge for subsequent connection
+            val challenge = encryptedConnection.inputStream.let(::DataInputStream).readLong()
+            persister(serverInfo.copy(challenge = challenge))
+
+            // return an object representing the connection
+            return ServerSession(encryptedConnection)
         }
         throw ConnectException("failed to establish a connection with port knocking server")
     }

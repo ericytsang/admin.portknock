@@ -1,5 +1,6 @@
 package admin.portknock
 
+import com.github.ericytsang.lib.concurrent.sleep
 import com.github.ericytsang.lib.net.connection.EncryptedConnection
 import com.github.ericytsang.lib.net.host.TcpClient
 import java.io.ByteArrayOutputStream
@@ -49,6 +50,7 @@ object PortKnockClient
         }
 
         // create a TCP connection with the port knock server
+        sleep(1000) // todo remove after debug is over
         val tcpConnection = run {
             val serverCtlAddr = TcpClient.Address(serverInfo.ipAddress,serverInfo.controlPort)
             TcpClient.srcPort(localPort).connect(serverCtlAddr)

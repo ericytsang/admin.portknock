@@ -29,6 +29,7 @@ dependencies {
 
     compile "com.github.ericytsang:lib.net:1.2.4"
     compile "com.github.ericytsang:lib.modem:1.0.1"
+    compile "com.github.ericytsang:lib.simplifiedmap:1.0.0"
 
     compile 'org.slf4j:slf4j-simple:1.7.21'
     compile 'org.pcap4j:pcap4j-core:1.6.6'

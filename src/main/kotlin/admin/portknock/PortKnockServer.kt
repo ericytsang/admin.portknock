@@ -13,6 +13,7 @@ import java.io.DataOutputStream
 import java.security.KeyPair
 import java.util.LinkedHashMap
 import java.util.Random
+import java.util.concurrent.Executors
 import java.util.concurrent.locks.ReentrantLock
 import javax.crypto.Cipher
 import kotlin.concurrent.withLock
@@ -38,7 +39,17 @@ class PortKnockServer(
          */
         const val PORT_KNOCK_CLEARANCE_INTERVAL:Long = 5000
 
+        /**
+         * timeout in milliseconds that we will wait for the authentication
+         * process to complete before aborting it.
+         */
         const val AUTHENTICATION_TIMEOUT:Long = 20000
+
+        /**
+         * maximum number of connections this server will allow to be connected
+         * at the same time.
+         */
+        val MAX_PARALLEL_SESSIONS:Int = Runtime.getRuntime().availableProcessors()
     }
 
     override fun close()
@@ -145,7 +156,6 @@ class PortKnockServer(
                 firewallManipulators[connectionSignatures] = this
                 connectionSignatures.forEach {
                     secureServer.connectionSignatureToPublicKey[it] = clientInfo.publicKey.toByteArray()
-                    secureServer.authorizedConnectionSignatures += it
                 }
                 firewall.allow(connectionSignatures)
             }
@@ -166,18 +176,22 @@ class PortKnockServer(
                 firewall.disallow(connectionSignatures)
                 connectionSignatures.forEach {
                     secureServer.connectionSignatureToPublicKey.remove(it)
-                    secureServer.authorizedConnectionSignatures -= it
                 }
                 firewallManipulators.remove(connectionSignatures)
             }
         }
     }
 
-    private val secureServer = object:SecureServer(controlPort)
+    private val secureServer = object:SecureServer(controlPort,Executors.newFixedThreadPool(MAX_PARALLEL_SESSIONS))
     {
         val connectionSignatureToPublicKey = LinkedHashMap<ConnectionSignature,ByteArray>()
 
         private val randomGenerator = Random()
+
+        override fun isAuthorized(connectionSignature:ConnectionSignature):Boolean
+        {
+            return connectionSignature in connectionSignatureToPublicKey.keys
+        }
 
         override fun handleConnection(connection:Connection,connectionSignature:ConnectionSignature)
         {
@@ -199,8 +213,7 @@ class PortKnockServer(
             }
 
             // handle its requests in a separate thread until it disconnects
-            ClientSession(encryptedConnection,connectionSignature.remoteIpAddress,firewall)
-                .let(::Thread).start()
+            ClientSession(encryptedConnection,connectionSignature.remoteIpAddress,firewall).run()
         }
     }
 }

@@ -1,0 +1,49 @@
+group 'com.github.ericytsang'
+version '1.0.0'
+
+buildscript {
+    ext.kotlin_version = '1.0.6'
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+apply plugin: 'kotlin'
+apply plugin: 'maven'
+
+compileJava {
+    sourceCompatibility = "1.6"
+    targetCompatibility = "1.6"
+    return this
+}
+
+repositories {
+    mavenCentral()
+    maven { url "https://jitpack.io" }
+}
+
+dependencies {
+
+    compile project(":lib")
+
+    compile "com.github.ericytsang:lib.simplifiedmap:1.0.0"
+
+    compile 'org.slf4j:slf4j-simple:1.7.21'
+    compile 'org.pcap4j:pcap4j-core:1.6.6'
+    compile 'org.pcap4j:pcap4j-packetfactory-static:1.6.6'
+
+    testCompile "junit:junit:4.11"
+    testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
+}
+
+task sourcesJar(type: Jar) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+artifacts {
+    archives sourcesJar
+}

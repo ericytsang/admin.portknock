@@ -62,7 +62,6 @@ class PortKnockServer(
     {
         operator fun get(publicKey:List<Byte>):ClientInfo?
         operator fun set(publicKey:List<Byte>,client:ClientInfo)
-        val keys:Set<List<Byte>>
     }
 
     /**

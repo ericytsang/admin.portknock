@@ -50,9 +50,6 @@ class GeneralTest
         {
             println("printPersister[${publicKey.hashCode()}] = $client")
         }
-
-        override val keys:Set<List<Byte>>
-            get() = throw UnsupportedOperationException() // todo
     }
 
     @Test

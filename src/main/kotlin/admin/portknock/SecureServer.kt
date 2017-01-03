@@ -53,7 +53,7 @@ abstract class SecureServer(val listenPort:Int,val executorService:ExecutorServi
             val connectionSignature = ConnectionSignature.createObject(
                 tcpConnection.socket.inetAddress,tcpConnection.socket.port,
                 tcpConnection.socket.localPort)
-            if (isAuthorized(connectionSignature))
+            if (!isAuthorized(connectionSignature))
             {
                 tcpConnection.close()
                 return

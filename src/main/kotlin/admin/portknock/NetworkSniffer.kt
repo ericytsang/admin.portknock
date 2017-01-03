@@ -8,7 +8,7 @@ import java.io.Closeable
 import java.util.concurrent.ArrayBlockingQueue
 import kotlin.concurrent.thread
 
-abstract class NetworkSniffer(val packetBacklogSize:Int,val bpfFilter:String):Closeable
+internal abstract class NetworkSniffer(val packetBacklogSize:Int,val bpfFilter:String):Closeable
 {
     override fun close()
     {

@@ -6,7 +6,7 @@ import java.io.Closeable
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 
-abstract class SecureServer(val listenPort:Int,val executorService:ExecutorService):Closeable
+internal abstract class SecureServer(val listenPort:Int,val executorService:ExecutorService):Closeable
 {
     private val tcpServer = TcpServer(listenPort)
 

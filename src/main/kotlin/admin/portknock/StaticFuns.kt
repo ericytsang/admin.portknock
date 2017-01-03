@@ -10,7 +10,7 @@ import java.security.spec.X509EncodedKeySpec
 
 private val hexArray = "0123456789ABCDEF".toCharArray()
 
-fun ByteArray.toHexString():String
+internal fun ByteArray.toHexString():String
 {
     val hexChars = CharArray(size*2)
     for (j in 0..size-1)
@@ -22,17 +22,17 @@ fun ByteArray.toHexString():String
     return String(hexChars)
 }
 
-fun PcapNetworkInterface.open():PcapHandle
+internal fun PcapNetworkInterface.open():PcapHandle
 {
     return openLive(65536,PcapNetworkInterface.PromiscuousMode.NONPROMISCUOUS,5000)
 }
 
-fun ByteArray.toRsaPrivateKey():PrivateKey
+internal fun ByteArray.toRsaPrivateKey():PrivateKey
 {
     return KeyFactory.getInstance("RSA").generatePrivate(PKCS8EncodedKeySpec(this))
 }
 
-fun ByteArray.toRsaPublicKey():PublicKey
+internal fun ByteArray.toRsaPublicKey():PublicKey
 {
     return KeyFactory.getInstance("RSA").generatePublic(X509EncodedKeySpec(this))
 }

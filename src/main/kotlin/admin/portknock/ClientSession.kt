@@ -5,7 +5,7 @@ import com.github.ericytsang.lib.net.connection.Connection
 import java.io.DataInputStream
 import java.net.InetAddress
 
-class ClientSession(val connection:Connection,val clientIpAddress:InetAddress,val firewall:Firewall):Runnable
+internal class ClientSession(val connection:Connection,val clientIpAddress:InetAddress,val firewall:Firewall):Runnable
 {
     private val modem = Modem(connection)
 

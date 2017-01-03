@@ -1,11 +1,15 @@
 package admin.portknock
 
 import com.github.ericytsang.lib.concurrent.sleep
+import org.junit.Ignore
 import org.junit.Test
 import java.net.InetAddress
 import java.security.KeyPair
 import java.util.ArrayList
 
+// ignoring test because the execution of the unit tests in this test must be
+// coordinated between two computers
+@Ignore
 class GeneralTest
 {
     companion object
@@ -23,7 +27,7 @@ class GeneralTest
         const val CONTROL_PORT = 62513
     }
 
-    val serverAddress = InetAddress.getByName("192.168.1.91")
+    val serverAddress = InetAddress.getByName("192.168.1.90")
 
     val printFirewall = object:Firewall
     {

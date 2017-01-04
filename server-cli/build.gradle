@@ -1,0 +1,45 @@
+group 'com.github.ericytsang'
+version '1.0.0'
+
+buildscript {
+    ext.kotlin_version = '1.0.6'
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+apply plugin: 'kotlin'
+
+compileJava {
+    sourceCompatibility = "1.6"
+    targetCompatibility = "1.6"
+    return this
+}
+
+repositories {
+    mavenCentral()
+    maven { url "https://jitpack.io" }
+}
+
+dependencies {
+
+    compile project(":server")
+
+    testCompile "junit:junit:4.11"
+    testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
+}
+
+task mainJar(type: Jar, dependsOn: classes) {
+    from sourceSets.main.output
+    from {configurations.runtime.collect {zipTree(it)}} {
+        exclude "META-INF/*.SF"
+        exclude "META-INF/*.DSA"
+        exclude "META-INF/*.RSA"
+    }
+    manifest {
+        attributes 'Main-Class': "com.github.ericytsang.admin.portknock.Main"
+    }
+}

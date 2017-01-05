@@ -27,7 +27,7 @@ class PortKnockClientTest
         const val CONTROL_PORT = 62513
     }
 
-    val serverAddress = InetAddress.getByName("192.168.1.90")
+    val serverHostname = "192.168.1.90"
 
     @Test
     fun client()
@@ -35,7 +35,7 @@ class PortKnockClientTest
         sleep(1000)
         val session = PortKnockClient.connect(
             {println(it)},
-            ServerInfo(100,"hellur",serverAddress,
+            ServerInfo(100,"hellur",serverHostname,
                 SERVER_KEY_PAIR.public.encoded.mapTo(ArrayList()){it},
                 KNOCK_PORT,CONTROL_PORT),
             CLIENT_KEY_PAIR)

@@ -3,6 +3,7 @@ package com.github.ericytsang.admin.portknock
 import com.github.ericytsang.lib.modem.Modem
 import com.github.ericytsang.lib.net.connection.Connection
 import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.net.InetAddress
 
 internal class ClientSession(val connection:Connection,val clientIpAddress:InetAddress,val firewall:Firewall):Runnable
@@ -28,8 +29,20 @@ internal class ClientSession(val connection:Connection,val clientIpAddress:InetA
             val portToAllow = dataI.readInt()
             val connectionSignatureToAllow = ConnectionSignature.createSet(clientIpAddress,0..65535,portToAllow)
 
-            // allow the port
-            firewall.allow(connectionSignatureToAllow)
+            // try to allow the port
+            val allowed = firewall.allow(connectionSignatureToAllow)
+
+            // report back to client whether or not the port was allowed
+            val dataO = connection.outputStream.let(::DataOutputStream)
+            dataO.writeBoolean(allowed)
+            dataO.flush()
+
+            // if not allowed, forcibly close the connection and return early
+            if (!allowed)
+            {
+                connection.close()
+                return
+            }
 
             // wait until the connection closes
             while (true)

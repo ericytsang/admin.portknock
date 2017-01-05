@@ -29,9 +29,18 @@ class PortKnockServerTest
 
     val printFirewall = object:Firewall
     {
-        override fun allow(connectionSignature:Set<ConnectionSignature>)
+        override fun allow(connectionSignature:Set<ConnectionSignature>):Boolean
         {
-            println("allow ${connectionSignature.first()}")
+            return if (connectionSignature.all {it.localPort == 22})
+            {
+                println("allow ${connectionSignature.first()}")
+                true
+            }
+            else
+            {
+                println("denied allow ${connectionSignature.first()}")
+                false
+            }
         }
 
         override fun disallow(connectionSignature:Set<ConnectionSignature>)

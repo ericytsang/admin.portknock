@@ -95,22 +95,33 @@ object Main
                 }
                 print("connecting...")
                 val connection = PortKnockClient.connect(persister,server,keypair)
-                println("OK")
-                print("enter a port number to toggle...")
+                println("ok")
                 val scanner = Scanner(System.`in`)
                 val toggledPorts = mutableMapOf<Int,Closeable>()
                 while (true)
                 {
+                    print("enter port number to toggle open or closed: ")
                     val port = scanner.nextInt()
                     val existing = toggledPorts[port]
                     if (existing != null)
                     {
+                        println("port $port closed")
                         existing.close()
                         toggledPorts.remove(port)
                     }
                     else
                     {
-                        toggledPorts[port] = connection.requestTcpConnectClearance(port)
+                        print("request to open port $port...")
+                        val request = connection.requestTcpConnectClearance(port)
+                        if (request != null)
+                        {
+                            toggledPorts[port] = request
+                            println("granted")
+                        }
+                        else
+                        {
+                            println("denied")
+                        }
                     }
                 }
             }

@@ -40,7 +40,7 @@ class PortKnockClientTest
                 KNOCK_PORT,CONTROL_PORT),
             CLIENT_KEY_PAIR)
         println("connected!")
-        val closeable = session.requestTcpConnectClearance(22)
+        val closeable = session.requestTcpConnectClearance(22)!!
         sleep(5000)
         closeable.close()
         session.close()

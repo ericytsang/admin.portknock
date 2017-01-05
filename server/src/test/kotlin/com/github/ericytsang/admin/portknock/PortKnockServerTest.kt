@@ -45,7 +45,7 @@ class PortKnockServerTest
         override fun get(publicKey:List<Byte>):ClientInfo?
         {
             println("printPersister[${publicKey.hashCode()}]")
-            return ClientInfo(100,CLIENT_KEY_PAIR.public.encoded.mapTo(ArrayList()){it},"custom client")
+            return ClientInfo(100,ArrayList(publicKey),"custom client")
         }
 
         override fun set(publicKey:List<Byte>,client:ClientInfo)

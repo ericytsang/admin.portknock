@@ -27,26 +27,8 @@ object PropertiesEditor
         @Suppress("NAME_SHADOWING")
         val properties = properties.clone() as Properties
         val resultQ = ArrayBlockingQueue<()->Properties?>(1)
-        val frame = JFrame(jFrameTitle)
 
-        // configure frame size and position
-        frame.size = FRAME_DIMENSIONS
-        frame.setLocationRelativeTo(null)
-
-        // configure frame close behaviour
-        frame.defaultCloseOperation = JFrame.DO_NOTHING_ON_CLOSE
-        val windowListener = object:WindowAdapter()
-        {
-            override fun windowClosing(e:WindowEvent?)
-            {
-                resultQ.put({null})
-            }
-        }
-        frame.addWindowListener(windowListener)
-
-        // configure frame layout and children
-        frame.menuBar = null
-        frame.contentPane.layout = BorderLayout()
+        // configure propertiesTable
         val propertiesTable = JTable()
         propertiesTable.fillsViewportHeight = true
         propertiesTable.model = object:AbstractTableModel()
@@ -78,15 +60,17 @@ object PropertiesEditor
                 else -> throw RuntimeException("unhandled branch")
             }
         }
+
+        // configure scrollPane
         val scrollPane = JScrollPane()
-        frame.contentPane.add(scrollPane,BorderLayout.CENTER)
         scrollPane.viewport.view = propertiesTable
-        val panel = Panel()
-        frame.contentPane.add(panel,BorderLayout.PAGE_END)
-        panel.layout = FlowLayout(FlowLayout.TRAILING)
+
+        // configure buttonPanel
+        val buttonPanel = Panel()
+        buttonPanel.layout = FlowLayout(FlowLayout.TRAILING)
         run {
             val button = Button("OK")
-            panel.add(button)
+            buttonPanel.add(button)
             button.addActionListener {
                 propertiesTable.cellEditor?.stopCellEditing()
                 resultQ.put({properties})
@@ -94,13 +78,31 @@ object PropertiesEditor
         }
         run {
             val button = Button("Cancel")
-            panel.add(button)
+            buttonPanel.add(button)
             button.addActionListener {
                 resultQ.put({null})
             }
         }
 
-        // show the window
+        // configure frame
+        val frame = JFrame(jFrameTitle)
+        frame.size = FRAME_DIMENSIONS
+        frame.setLocationRelativeTo(null)
+        frame.defaultCloseOperation = JFrame.DO_NOTHING_ON_CLOSE
+        val windowListener = object:WindowAdapter()
+        {
+            override fun windowClosing(e:WindowEvent?)
+            {
+                resultQ.put({null})
+            }
+        }
+        frame.addWindowListener(windowListener)
+        frame.menuBar = null
+        frame.contentPane.layout = BorderLayout()
+        frame.contentPane.add(scrollPane,BorderLayout.CENTER)
+        frame.contentPane.add(buttonPanel,BorderLayout.PAGE_END)
+
+        // show the frame
         frame.isVisible = true
 
         // get the user input, cleanup and return

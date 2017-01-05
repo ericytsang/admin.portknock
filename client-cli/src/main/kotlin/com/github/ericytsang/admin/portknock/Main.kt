@@ -191,20 +191,20 @@ object Main
 
         fun load(password:String):DataStore
         {
-            return dataFile
+            val stream = dataFile
                 .inputStream()
                 .passwordProtected(password)
                 .let(::ObjectInputStream)
-                .readObject() as DataStore
+            return stream.use {it.readObject() as DataStore}
         }
 
         fun store(password:String,dataStore:DataStore)
         {
-            dataFile
+            val stream = dataFile
                 .outputStream()
                 .passwordProtected(password)
                 .let(::ObjectOutputStream)
-                .writeObject(dataStore)
+            stream.use {it.writeObject(dataStore)}
         }
     }
 
@@ -236,7 +236,7 @@ object Main
         fun loadProperties(serverInfo:ServerInfo):Properties
         {
             val properties = Properties()
-            properties[PUBLIC_KEY_KEY] = serverInfo.publicKeyAsRsaPublicKey.encoded.let {DatatypeConverter.printHexBinary(it)}
+            properties[PUBLIC_KEY_KEY] = serverInfo.publicKey.toByteArray().let {DatatypeConverter.printHexBinary(it)}
             properties[KNOCK_PORT_KEY] = serverInfo.knockPort.toString()
             properties[CONTROL_PORT_KEY] = serverInfo.controlPort.toString()
             properties[CHALLENGE_KEY] = serverInfo.challenge.toString()

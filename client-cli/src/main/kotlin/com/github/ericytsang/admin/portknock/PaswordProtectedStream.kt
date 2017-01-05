@@ -25,14 +25,12 @@ private fun String.to16ByteArray():ByteArray
 
 fun InputStream.passwordProtected(password:String):InputStream
 {
-    return DataInputStream(this).use {
-        inputStream ->
-        val iv = ByteArray(16).apply {inputStream.readFully(this)}.let(::IvParameterSpec)
-        val key = password.to16ByteArray().let {SecretKeySpec(it,"AES")}
-        val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
-        cipher.init(Cipher.DECRYPT_MODE,key,iv)
-        CipherInputStream(inputStream,cipher)
-    }
+    val inputStream = DataInputStream(this)
+    val iv = ByteArray(16).apply {inputStream.readFully(this)}.let(::IvParameterSpec)
+    val key = password.to16ByteArray().let {SecretKeySpec(it,"AES")}
+    val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+    cipher.init(Cipher.DECRYPT_MODE,key,iv)
+    return CipherInputStream(inputStream,cipher)
 }
 
 fun OutputStream.passwordProtected(password:String):OutputStream
@@ -40,9 +38,6 @@ fun OutputStream.passwordProtected(password:String):OutputStream
     val key = password.to16ByteArray().let {SecretKeySpec(it,"AES")}
     val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
     cipher.init(Cipher.ENCRYPT_MODE,key)
-    return use {
-        outputStream ->
-        outputStream.write(cipher.iv)
-        CipherOutputStream(outputStream,cipher)
-    }
+    write(cipher.iv)
+    return CipherOutputStream(this,cipher)
 }

@@ -100,7 +100,7 @@ object Main
                 require(server != null) {"no server with the name \"$serverName\" currently exists."}
                 server!!
                 val properties = ServerPersister.loadProperties(server)
-                properties.store(System.out,serverName)
+                properties.store(System.out,"[$serverName]")
             }
             "connect" ->
             {

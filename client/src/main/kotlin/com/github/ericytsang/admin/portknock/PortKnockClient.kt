@@ -6,6 +6,7 @@ import com.github.ericytsang.lib.net.host.TcpClient
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
+import java.net.BindException
 import java.net.ConnectException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -18,7 +19,11 @@ object PortKnockClient
 {
     private val MAX_TRY_COUNT:Int = 5
 
-    private val FAILED_TO_CONNECT_SLEEP_MILLIS:Long = 1000
+    private val FAILED_TO_CONNECT_SLEEP_MILLIS:Long = 2000
+
+    private val MAX_TCP_BIND_TRY_COUNT:Int = 3
+
+    private val FAILED_TO_BIND_SLEEP_MILLIS:Long = 100
 
     /**
      * performs a port knock on the server inferred from [serverInfo] then tries
@@ -55,8 +60,26 @@ object PortKnockClient
 
             // create a TCP connection with the port knock server
             val tcpConnection = run {
-                val serverCtlAddr = TcpClient.Address(serverInfo.ipAddress,serverInfo.controlPort)
-                TcpClient.srcPort(localPort).connect(serverCtlAddr)
+                for (j in 1..MAX_TCP_BIND_TRY_COUNT)
+                {
+                    try
+                    {
+                        val serverCtlAddr = TcpClient.Address(serverInfo.ipAddress,serverInfo.controlPort)
+                        return@run TcpClient.srcPort(localPort).connect(serverCtlAddr)
+                    }
+                    catch (ex:BindException)
+                    {
+                        if (j != MAX_TCP_BIND_TRY_COUNT)
+                        {
+                            sleep(FAILED_TO_BIND_SLEEP_MILLIS)
+                        }
+                        else
+                        {
+                            throw ex
+                        }
+                    }
+                }
+                throw RuntimeException()
             }
 
             // authenticate the connection

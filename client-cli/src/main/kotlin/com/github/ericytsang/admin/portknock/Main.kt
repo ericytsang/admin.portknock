@@ -223,7 +223,7 @@ object Main
                     properties[CHALLENGE_KEY].let {it as String}.toLong(),
                     serverName,
                     properties[SERVER_HOSTNAME_KEY].let {it as String},
-                    properties[CHALLENGE_KEY].let {it as String}.let {DatatypeConverter.parseHexBinary(it)}.toList().let {ArrayList(it)},
+                    properties[PUBLIC_KEY_KEY].let {it as String}.let {DatatypeConverter.parseHexBinary(it)}.toList().let {ArrayList(it)},
                     properties[KNOCK_PORT_KEY].let {it as String}.toInt(),
                     properties[CONTROL_PORT_KEY].let {it as String}.toInt())
             }
@@ -449,7 +449,7 @@ object Main
         fun loadExistingOrGenerateNewKeyPair():KeyPair
         {
             // get RSA keys...generate RSA keys if needed
-            return if (KeyPairPersister.doesKeyPairFileExist())
+            return if (!KeyPairPersister.doesKeyPairFileExist())
             {
                 println("keystore file not found.")
                 println("generating RSA keys...")

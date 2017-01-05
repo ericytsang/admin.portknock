@@ -108,6 +108,7 @@ object Main
                     }
                     catch (ex:InputMismatchException)
                     {
+                        scanner.next()
                         continue
                     }
                     val existing = toggledPorts[port]

@@ -30,6 +30,7 @@ object Main
         UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
     }
 
+    // todo: finish writing usage message
     private val USAGE = ""+
         "usage:\n"+
         "java -jar jarfile.jar list\n"

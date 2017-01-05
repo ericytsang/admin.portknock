@@ -3,6 +3,7 @@ package com.github.ericytsang.admin.portknock
 import org.junit.Test
 import java.security.KeyPair
 import java.security.KeyPairGenerator
+import java.util.Arrays
 import javax.crypto.Cipher
 import javax.xml.bind.DatatypeConverter
 
@@ -11,10 +12,12 @@ class RsaEncryptionUsage
     fun generateKeys():KeyPair
     {
         val keyGen = KeyPairGenerator.getInstance("RSA")
-        keyGen.initialize(512)
+        keyGen.initialize(4096)
         val keyPair = keyGen.generateKeyPair()
         println("encrypt key: ${DatatypeConverter.printHexBinary(keyPair.public.encoded)}")
+        println("encrypt key: ${Arrays.toString(keyPair.public.encoded)}")
         println("decrypt key: ${DatatypeConverter.printHexBinary(keyPair.private.encoded)}")
+        println("decrypt key: ${Arrays.toString(keyPair.private.encoded)}")
         return keyPair
     }
 

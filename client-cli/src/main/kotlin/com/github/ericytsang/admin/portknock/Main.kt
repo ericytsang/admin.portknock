@@ -11,6 +11,7 @@ import java.security.PublicKey
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
 import java.util.ArrayList
+import java.util.InputMismatchException
 import java.util.Properties
 import java.util.Scanner
 import javax.crypto.Cipher
@@ -100,8 +101,15 @@ object Main
                 val toggledPorts = mutableMapOf<Int,Closeable>()
                 while (true)
                 {
-                    print("enter port number to toggle open or closed: ")
-                    val port = scanner.nextInt()
+                    val port = try
+                    {
+                        print("enter port number to toggle open or closed: ")
+                        scanner.nextInt()
+                    }
+                    catch (ex:InputMismatchException)
+                    {
+                        continue
+                    }
                     val existing = toggledPorts[port]
                     if (existing != null)
                     {

@@ -4,6 +4,7 @@ import org.junit.Test
 import java.security.KeyPair
 import java.security.KeyPairGenerator
 import javax.crypto.Cipher
+import javax.xml.bind.DatatypeConverter
 
 class RsaEncryptionUsage
 {
@@ -12,8 +13,8 @@ class RsaEncryptionUsage
         val keyGen = KeyPairGenerator.getInstance("RSA")
         keyGen.initialize(512)
         val keyPair = keyGen.generateKeyPair()
-        println("encrypt key: ${keyPair.public.encoded.toHexString()}")
-        println("decrypt key: ${keyPair.private.encoded.toHexString()}")
+        println("encrypt key: ${DatatypeConverter.printHexBinary(keyPair.public.encoded)}")
+        println("decrypt key: ${DatatypeConverter.printHexBinary(keyPair.private.encoded)}")
         return keyPair
     }
 
@@ -35,7 +36,7 @@ class RsaEncryptionUsage
 
         // encrypt the message
         val encryptedMessage = encryptor.doFinal(message)
-        println("encryptedMessage: ${encryptedMessage.toHexString()}")
+        println("encryptedMessage: ${DatatypeConverter.printHexBinary(encryptedMessage)}")
 
         // initialize decrypting cipher
         val decryptor = Cipher.getInstance("RSA")
@@ -58,7 +59,7 @@ class RsaEncryptionUsage
 
         // encrypt the message
         val encryptedMessage = encryptor.doFinal(message)
-        println("encryptedMessage: ${encryptedMessage.toHexString()}")
+        println("encryptedMessage: ${DatatypeConverter.printHexBinary(encryptedMessage)}")
 
         // initialize decrypting cipher
         val decryptor = Cipher.getInstance("RSA")

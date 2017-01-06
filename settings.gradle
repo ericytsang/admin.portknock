@@ -1,5 +1,6 @@
 include ':server-cli'
-include ':client-cli'
 include ':server'
+include ':client-cli'
 include ':client'
 include ':lib'
+

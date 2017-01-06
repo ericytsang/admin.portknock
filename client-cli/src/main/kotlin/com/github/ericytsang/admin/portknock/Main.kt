@@ -196,12 +196,6 @@ object Main
         }
     }
 
-    private fun getPassword(prompt:String):String
-    {
-        println(prompt)
-        return System.console()?.readPassword()?.let {String(it)} ?: readLine()!!
-    }
-
     object ServerPersister
     {
         val PUBLIC_KEY_KEY = "public_key"

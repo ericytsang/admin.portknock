@@ -26,6 +26,8 @@ repositories {
 
 dependencies {
 
+    compile project(":lib-cli")
+
     compile project(":client")
 
     testCompile "junit:junit:4.11"

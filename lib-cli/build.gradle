@@ -26,9 +26,9 @@ repositories {
 
 dependencies {
 
-    compile project(":lib-cli")
+    compile "com.github.ericytsang:lib.cipherstream:1.0.1"
 
-    compile project(":server")
+    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
 
     testCompile "junit:junit:4.11"
     testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"

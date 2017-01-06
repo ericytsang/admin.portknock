@@ -9,6 +9,12 @@ import java.security.spec.X509EncodedKeySpec
 data class DataStore(
     val publicKey:List<Byte>,
     val privateKey:List<Byte>,
+    val knockPort:Int,
+    val controlPort:Int,
+    val ipV4AllowCommand:String,
+    val ipV6AllowCommand:String,
+    val ipV4DisallowCommand:String,
+    val ipV6DisallowCommand:String,
     val clients:Map<String,ClientInfo>)
     :Serializable
 {

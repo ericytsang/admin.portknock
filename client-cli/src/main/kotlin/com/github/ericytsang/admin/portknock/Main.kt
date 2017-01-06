@@ -28,6 +28,8 @@ object Main
 
     private val DATA_FILE = File(".${File.separator}client-cli-default.data")
 
+    private val RSA_KEY_SIZE = 2048
+
     @JvmStatic fun main(args:Array<String>)
     {
         val dataStoreManager = DataStoreManager(DATA_FILE)
@@ -37,6 +39,27 @@ object Main
         require(args.isNotEmpty()) {USAGE}
         when (args[0])
         {
+            "regenkeys" ->
+            {
+                val keyPair = KeyPairGenerator.getInstance("RSA")
+                    .apply {initialize(RSA_KEY_SIZE)}
+                    .generateKeyPair()
+                val updatedDataStore = dataStore.copy(
+                    publicKey = keyPair.public.encoded.toCollection(ArrayList()),
+                    privateKey = keyPair.private.encoded.toCollection(ArrayList()))
+                dataStoreManager.store(password,updatedDataStore)
+            }
+            "printme" ->
+            {
+                val properties = Properties()
+                properties["publicKey"] = dataStore.publicKey.toByteArray().let {DatatypeConverter.printHexBinary(it)}
+                properties.store(System.out,"client information")
+            }
+            "chpasswd" ->
+            {
+                val newPassword = getPassword("Enter new password for ${DATA_FILE.name}:")
+                dataStoreManager.store(newPassword,dataStore)
+            }
             "list" -> dataStore.servers.keys
                 .sortedBy {it.toUpperCase()}
                 .forEach(::println)
@@ -147,8 +170,6 @@ object Main
 
     private class DataStoreManager(val dataFile:File)
     {
-        private val RSA_KEY_SIZE = 2048
-
         fun loadExistingOrCreateNew():Pair<DataStore,String>
         {
             // get RSA keys...generate RSA keys if needed

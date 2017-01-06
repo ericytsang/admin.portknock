@@ -3,6 +3,7 @@ package com.github.ericytsang.admin.portknock
 import com.github.ericytsang.lib.concurrent.sleep
 import org.junit.Ignore
 import org.junit.Test
+import java.net.InetAddress
 import java.security.KeyPair
 import java.util.ArrayList
 import javax.xml.bind.DatatypeConverter
@@ -29,23 +30,23 @@ class PortKnockServerTest
 
     val printFirewall = object:Firewall
     {
-        override fun allow(connectionSignature:Set<ConnectionSignature>):Boolean
+        override fun allow(remoteIpAddress:InetAddress,remotePortRange:IntRange,localPort:Int):Boolean
         {
-            return if (connectionSignature.all {it.localPort == 22})
+            return if (localPort == 22)
             {
-                println("allow ${connectionSignature.first()}")
+                println("allow $localPort for $remoteIpAddress:$remotePortRange")
                 true
             }
             else
             {
-                println("denied allow ${connectionSignature.first()}")
+                println("denied allow $localPort for $remoteIpAddress:$remotePortRange")
                 false
             }
         }
 
-        override fun disallow(connectionSignature:Set<ConnectionSignature>)
+        override fun disallow(remoteIpAddress:InetAddress,remotePortRange:IntRange,localPort:Int)
         {
-            println("disallow ${connectionSignature.first()}")
+            println("disallow $localPort for $remoteIpAddress:$remotePortRange")
         }
     }
 

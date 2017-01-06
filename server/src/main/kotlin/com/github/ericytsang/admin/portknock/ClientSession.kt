@@ -27,10 +27,9 @@ internal class ClientSession(val connection:Connection,val clientIpAddress:InetA
             // read port to allow
             val dataI = connection.inputStream.let(::DataInputStream)
             val portToAllow = dataI.readInt()
-            val connectionSignatureToAllow = ConnectionSignature.createSet(clientIpAddress,0..65535,portToAllow)
 
             // try to allow the port
-            val allowed = firewall.allow(connectionSignatureToAllow)
+            val allowed = firewall.allow(clientIpAddress,0..65535,portToAllow)
 
             // report back to client whether or not the port was allowed
             val dataO = connection.outputStream.let(::DataOutputStream)
@@ -58,7 +57,7 @@ internal class ClientSession(val connection:Connection,val clientIpAddress:InetA
             }
 
             // disallow the port
-            firewall.disallow(connectionSignatureToAllow)
+            firewall.disallow(clientIpAddress,0..65535,portToAllow)
         }
     }
 }

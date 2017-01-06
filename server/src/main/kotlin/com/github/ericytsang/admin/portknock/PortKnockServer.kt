@@ -212,7 +212,11 @@ class PortKnockServer(
                     connectionSignatures.forEach {
                         secureServer.connectionSignatureToClientInfo[it] = clientInfo
                     }
-                    firewall.allow(connectionSignatures)
+                    val remoteIpAddress = connectionSignatures.first().remoteIpAddress
+                    val remotePorts = connectionSignatures.map {it.remotePort}
+                    val remotePortRange = remotePorts.min()!!..remotePorts.max()!!
+                    val localPort = connectionSignatures.first().localPort
+                    firewall.allow(remoteIpAddress,remotePortRange,localPort)
                 }
             }
             while (true)
@@ -229,7 +233,11 @@ class PortKnockServer(
             }
             firewallManipulators.readWriteLock.write {
                 secureServer.connectionSignatureToClientInfo.readWriteLock.write {
-                    firewall.disallow(connectionSignatures)
+                    val remoteIpAddress = connectionSignatures.first().remoteIpAddress
+                    val remotePorts = connectionSignatures.map {it.remotePort}
+                    val remotePortRange = remotePorts.min()!!..remotePorts.max()!!
+                    val localPort = connectionSignatures.first().localPort
+                    firewall.disallow(remoteIpAddress,remotePortRange,localPort)
                     connectionSignatures.forEach {
                         secureServer.connectionSignatureToClientInfo[it] = null
                     }

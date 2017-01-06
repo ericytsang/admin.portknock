@@ -259,7 +259,7 @@ object Main
                 try
                 {
                     // have user edit the file
-                    properties = PropertiesEditor.edit(properties,"Edit server properties") ?: return null
+                    properties = PropertiesEditor.edit(properties,"Edit $serverName") ?: return null
 
                     // check if file passes all requirements
                     val publicKey = try

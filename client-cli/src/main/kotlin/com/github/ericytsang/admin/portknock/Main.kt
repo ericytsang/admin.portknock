@@ -1,27 +1,15 @@
 package com.github.ericytsang.admin.portknock
 
 import java.io.Closeable
-import java.io.DataInputStream
 import java.io.File
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
-import java.security.KeyFactory
-import java.security.KeyPair
 import java.security.KeyPairGenerator
-import java.security.PrivateKey
-import java.security.PublicKey
-import java.security.spec.PKCS8EncodedKeySpec
-import java.security.spec.X509EncodedKeySpec
 import java.util.ArrayList
 import java.util.HashMap
 import java.util.InputMismatchException
 import java.util.Properties
 import java.util.Scanner
-import javax.crypto.Cipher
-import javax.crypto.CipherInputStream
-import javax.crypto.CipherOutputStream
-import javax.crypto.spec.IvParameterSpec
-import javax.crypto.spec.SecretKeySpec
 import javax.swing.JOptionPane
 import javax.swing.UIManager
 import javax.xml.bind.DatatypeConverter
@@ -362,4 +350,3 @@ object Main
         }
     }
 }
-

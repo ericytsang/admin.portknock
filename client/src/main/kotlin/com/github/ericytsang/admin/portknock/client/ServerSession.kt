@@ -1,4 +1,4 @@
-package com.github.ericytsang.admin.portknock
+package com.github.ericytsang.admin.portknock.client
 
 import com.github.ericytsang.lib.modem.Modem
 import com.github.ericytsang.lib.net.connection.Connection

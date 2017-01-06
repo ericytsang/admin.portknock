@@ -1,4 +1,4 @@
-package com.github.ericytsang.admin.portknock
+package com.github.ericytsang.admin.portknock.lib.cli
 
 fun getPassword(prompt:String):String
 {

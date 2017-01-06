@@ -1,4 +1,4 @@
-package com.github.ericytsang.admin.portknock
+package com.github.ericytsang.admin.portknock.server
 
 import com.github.ericytsang.lib.concurrent.sleep
 import org.junit.Ignore

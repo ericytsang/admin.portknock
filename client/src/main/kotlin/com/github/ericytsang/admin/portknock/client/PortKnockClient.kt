@@ -1,5 +1,6 @@
-package com.github.ericytsang.admin.portknock
+package com.github.ericytsang.admin.portknock.client
 
+import com.github.ericytsang.admin.portknock.lib.Constants
 import com.github.ericytsang.lib.concurrent.sleep
 import com.github.ericytsang.lib.net.connection.EncryptedConnection
 import com.github.ericytsang.lib.net.host.TcpClient

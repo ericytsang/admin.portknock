@@ -1,4 +1,4 @@
-package com.github.ericytsang.admin.portknock
+package com.github.ericytsang.admin.portknock.client
 
 import java.security.KeyFactory
 import java.security.PrivateKey

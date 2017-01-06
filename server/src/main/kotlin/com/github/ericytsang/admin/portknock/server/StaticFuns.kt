@@ -1,4 +1,4 @@
-package com.github.ericytsang.admin.portknock
+package com.github.ericytsang.admin.portknock.server
 
 import org.pcap4j.core.PcapHandle
 import org.pcap4j.core.PcapNetworkInterface

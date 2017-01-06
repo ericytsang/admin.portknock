@@ -1,9 +1,8 @@
-package com.github.ericytsang.admin.portknock
+package com.github.ericytsang.admin.portknock.client
 
 import com.github.ericytsang.lib.concurrent.sleep
 import org.junit.Ignore
 import org.junit.Test
-import java.net.InetAddress
 import java.security.KeyPair
 import java.util.ArrayList
 

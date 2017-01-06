@@ -1,5 +1,11 @@
-package com.github.ericytsang.admin.portknock
+package com.github.ericytsang.admin.portknock.server.cli
 
+import com.github.ericytsang.admin.portknock.lib.cli.PropertiesEditor
+import com.github.ericytsang.admin.portknock.lib.cli.getPassword
+import com.github.ericytsang.admin.portknock.lib.cli.passwordProtected
+import com.github.ericytsang.admin.portknock.server.ClientInfo
+import com.github.ericytsang.admin.portknock.server.Firewall
+import com.github.ericytsang.admin.portknock.server.PortKnockServer
 import java.io.File
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream

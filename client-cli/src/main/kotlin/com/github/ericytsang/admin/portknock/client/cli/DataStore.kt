@@ -1,5 +1,6 @@
-package com.github.ericytsang.admin.portknock
+package com.github.ericytsang.admin.portknock.client.cli
 
+import com.github.ericytsang.admin.portknock.client.ServerInfo
 import java.io.Serializable
 import java.security.KeyFactory
 import java.security.KeyPair

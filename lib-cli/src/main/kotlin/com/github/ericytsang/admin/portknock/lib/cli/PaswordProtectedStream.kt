@@ -1,4 +1,4 @@
-package com.github.ericytsang.admin.portknock
+package com.github.ericytsang.admin.portknock.lib.cli
 
 import com.github.ericytsang.lib.cipherstream.CipherInputStream
 import com.github.ericytsang.lib.cipherstream.CipherOutputStream

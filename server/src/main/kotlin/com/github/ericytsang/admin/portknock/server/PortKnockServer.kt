@@ -1,5 +1,6 @@
-package com.github.ericytsang.admin.portknock
+package com.github.ericytsang.admin.portknock.server
 
+import com.github.ericytsang.admin.portknock.lib.Constants
 import com.github.ericytsang.lib.net.connection.Connection
 import com.github.ericytsang.lib.net.connection.EncryptedConnection
 import com.github.ericytsang.lib.simplifiedmap.ReadWriteLockedSimplifiedMap

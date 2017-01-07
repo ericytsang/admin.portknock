@@ -31,7 +31,7 @@ object Main
         "usage:\n"+
         "java -jar jarfile.jar list\n"
 
-    private val DATA_FILE = File(".${File.separator}client-cli-default.data")
+    private val DATA_FILE = File(".${File.separator}server-cli-default.data")
 
     private val RSA_KEY_SIZE = 4096
 

@@ -114,6 +114,7 @@ object Main
 
                     // store the updatedDataStore
                     dataStoreManager.store(password,updatedDataStore)
+                    break
                 }
                 while (true)
             }

@@ -42,6 +42,6 @@ task mainJar(type: Jar, dependsOn: classes) {
         exclude "META-INF/*.RSA"
     }
     manifest {
-        attributes 'Main-Class': "com.github.ericytsang.admin.portknock.Main"
+        attributes 'Main-Class': "com.github.ericytsang.admin.portknock.server.cli.Main"
     }
 }

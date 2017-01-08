@@ -42,12 +42,20 @@ object Main
 
     @JvmStatic fun main(args:Array<String>)
     {
+        program(
+            args
+                .mapIndexed {i,s -> i to s}
+                .associate {it.first to it.second},
+            ::getPassword)
+    }
+
+    fun program(args:Map<Int,String>,getPassword:(prompt:String)->String)
+    {
         val dataStoreManager = DataStoreManager(DATA_FILE)
         val (dataStore,password) = dataStoreManager.loadExistingOrCreateNew()
 
         // edit, print, create, delete, list, connect
-        require(args.isNotEmpty()) {USAGE}
-        when (args[0])
+        when (args[0] ?: throw RuntimeException("missing command: $USAGE"))
         {
             "regenkeys" ->
             {
@@ -133,16 +141,14 @@ object Main
                 .forEach(::println)
             "delete" ->
             {
-                require(args.size >= 2) {USAGE}
-                val recordName = args[1]
+                val recordName = args[1] ?: throw RuntimeException("mussing argument: $USAGE")
                 require(recordName in dataStore.clients.keys) {"no client with the name \"$recordName\" currently exists."}
                 val updatedDataStore = dataStore.copy(clients = dataStore.clients.filterKeys {it != recordName})
                 dataStoreManager.store(password,updatedDataStore)
             }
             "create" ->
             {
-                require(args.size >= 2) {USAGE}
-                val recordName = args[1]
+                val recordName = args[1] ?: throw RuntimeException("mussing argument: $USAGE")
                 require(recordName !in dataStore.clients.keys) {"a client with the name \"$recordName\" already exists."}
                 val properties = ServerPersister.templateProperties()
                 val record = ServerPersister.getUserInputOrNullUponCancel(properties,recordName)
@@ -156,8 +162,7 @@ object Main
             }
             "edit" ->
             {
-                require(args.size >= 2) {USAGE}
-                val recordName = args[1]
+                val recordName = args[1] ?: throw RuntimeException("mussing argument: $USAGE")
                 val record = dataStore.clients[recordName]
                 require(record != null) {"no client with the name \"$recordName\" currently exists."}
                 record!!
@@ -173,8 +178,7 @@ object Main
             }
             "print" ->
             {
-                require(args.size >= 2) {USAGE}
-                val recordName = args[1]
+                val recordName = args[1] ?: throw RuntimeException("mussing argument: $USAGE")
                 val record = dataStore.clients[recordName]
                 require(record != null) {"no client with the name \"$recordName\" currently exists."}
                 record!!
@@ -232,6 +236,7 @@ object Main
                     ex.printStackTrace()
                 }
             }
+            else -> println(USAGE)
         }
     }
 

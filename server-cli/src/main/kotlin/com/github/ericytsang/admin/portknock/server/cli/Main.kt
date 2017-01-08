@@ -19,6 +19,11 @@ import javax.swing.JOptionPane
 import javax.swing.UIManager
 import javax.xml.bind.DatatypeConverter
 
+// todo: make this easier to test with unit tests
+// todo: find out why firewall disallow message doesn't print when the client explicitly disallows it
+// todo: have server actually execute the user-entered commands to enable or disable the firewall
+// todo: find out which threads are lingering upon client connect then disconnect...causing the server shutdown to hang
+// todo: change logging library to nop
 object Main
 {
     init

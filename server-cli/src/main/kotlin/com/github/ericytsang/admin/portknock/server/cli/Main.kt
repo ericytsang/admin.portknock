@@ -204,7 +204,9 @@ object Main
                         println("disallow $localPort for $remoteIpAddress:$remotePortRange") // todo
                     }
                 }
+                print("starting server...")
                 val server = PortKnockServer(persister,firewall,dataStore.keyPair,dataStore.knockPort,dataStore.controlPort)
+                println("ok")
                 println("press enter to stop server")
                 readLine()
                 print("stopping server...")

@@ -235,7 +235,7 @@ object Main
         }
     }
 
-    private class DataStoreManager(val dataFile:java.io.File)
+    private class DataStoreManager(val dataFile:File)
     {
         fun loadExistingOrCreateNew():Pair<DataStore,String>
         {
@@ -249,8 +249,8 @@ object Main
                     .generateKeyPair()
                 println("creating data store...")
                 val dataStore = DataStore(
-                    keyPair.public.encoded.toCollection(java.util.ArrayList()),
-                    keyPair.private.encoded.toCollection(java.util.ArrayList()),
+                    keyPair.public.encoded.toCollection(ArrayList()),
+                    keyPair.private.encoded.toCollection(ArrayList()),
                     0,0,"","","","",HashMap())
                 val password = getPassword("Enter new password for ${dataFile.name}:")
                 store(password,dataStore)

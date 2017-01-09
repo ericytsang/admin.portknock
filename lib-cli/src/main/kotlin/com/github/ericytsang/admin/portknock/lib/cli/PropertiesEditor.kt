@@ -16,7 +16,7 @@ import javax.swing.table.AbstractTableModel
 
 object PropertiesEditor
 {
-    private val FRAME_DIMENSIONS = Dimension(300,200)
+    private val FRAME_WIDTH = 300
 
     /**
      * returns null if the editing was cancelled by the user. returns a
@@ -86,8 +86,6 @@ object PropertiesEditor
 
         // configure frame
         val frame = JFrame(jFrameTitle)
-        frame.size = FRAME_DIMENSIONS
-        frame.setLocationRelativeTo(null)
         frame.defaultCloseOperation = JFrame.DO_NOTHING_ON_CLOSE
         val windowListener = object:WindowAdapter()
         {
@@ -101,9 +99,10 @@ object PropertiesEditor
         frame.contentPane.layout = BorderLayout()
         frame.contentPane.add(scrollPane,BorderLayout.CENTER)
         frame.contentPane.add(buttonPanel,BorderLayout.PAGE_END)
-
-        // show the frame
         frame.isVisible = true
+        frame.size = Dimension(FRAME_WIDTH,frame.preferredSize.height)
+        frame.minimumSize = Dimension(FRAME_WIDTH,frame.preferredSize.height)
+        frame.setLocationRelativeTo(null)
 
         // get the user input, cleanup and return
         val result = resultQ.take().invoke()

@@ -98,12 +98,24 @@ object Main
                     val updatedDataStore = try
                     {
                         dataStore.copy(
-                            knockPort = try {properties["knockPort"].toString().toInt()} catch(ex:Exception) {throw RuntimeException("failed to parse \"knockPort\" field.")},
-                            controlPort = try {properties["controlPort"].toString().toInt()} catch(ex:Exception) {throw RuntimeException("failed to parse \"controlPort\" field.")},
-                            ipV4AllowCommand = try {properties["ipV4AllowCommand"].toString()} catch(ex:Exception) {throw RuntimeException("failed to parse \"ipV4AllowCommand\" field.")},
-                            ipV6AllowCommand = try {properties["ipV6AllowCommand"].toString()} catch(ex:Exception) {throw RuntimeException("failed to parse \"ipV6AllowCommand\" field.")},
-                            ipV4DisallowCommand = try {properties["ipV4DisallowCommand"].toString()} catch(ex:Exception) {throw RuntimeException("failed to parse \"ipV4DisallowCommand\" field.")},
-                            ipV6DisallowCommand = try {properties["ipV6DisallowCommand"].toString()} catch(ex:Exception) {throw RuntimeException("failed to parse \"ipV6DisallowCommand\" field.")})
+                            knockPort =
+                            try {properties["knockPort"].toString().toInt()}
+                            catch(ex:Exception) {throw RuntimeException("failed to parse \"knockPort\" field.",ex)},
+                            controlPort =
+                            try {properties["controlPort"].toString().toInt()}
+                            catch(ex:Exception) {throw RuntimeException("failed to parse \"controlPort\" field.",ex)},
+                            ipV4AllowCommand =
+                            try {properties["ipV4AllowCommand"].toString()}
+                            catch(ex:Exception) {throw RuntimeException("failed to parse \"ipV4AllowCommand\" field.",ex)},
+                            ipV6AllowCommand =
+                            try {properties["ipV6AllowCommand"].toString()}
+                            catch(ex:Exception) {throw RuntimeException("failed to parse \"ipV6AllowCommand\" field.",ex)},
+                            ipV4DisallowCommand =
+                            try {properties["ipV4DisallowCommand"].toString()}
+                            catch(ex:Exception) {throw RuntimeException("failed to parse \"ipV4DisallowCommand\" field.",ex)},
+                            ipV6DisallowCommand =
+                            try {properties["ipV6DisallowCommand"].toString()}
+                            catch(ex:Exception) {throw RuntimeException("failed to parse \"ipV6DisallowCommand\" field.",ex)})
                     }
 
                     // if we failed to parse, ask user if they would like to try again...
@@ -324,39 +336,13 @@ object Main
                     // have user edit the file
                     properties = PropertiesEditor.edit(properties,"Edit $clientName") ?: return null
 
-                    // check if file passes all requirements
-                    val publicKey = try
-                    {
-                        properties.getProperty(PUBLIC_KEY_KEY)
-                            ?.let {DatatypeConverter.parseHexBinary(it)}
-                            ?: throw NullPointerException()
-                    }
-                    catch (ex:NullPointerException)
-                    {
-                        throw IllegalArgumentException("missing key: $PUBLIC_KEY_KEY.")
-                    }
-                    catch (ex:Exception)
-                    {
-                        throw IllegalArgumentException("value for $PUBLIC_KEY_KEY must be a hexadecimal number")
-                    }
-
-                    val challenge = try
-                    {
-                        properties.getProperty(CHALLENGE_KEY)
-                            ?.toLong()
-                            ?: throw NullPointerException()
-                    }
-                    catch (ex:NullPointerException)
-                    {
-                        throw IllegalArgumentException("missing key: $CHALLENGE_KEY.")
-                    }
-                    catch (ex:Exception)
-                    {
-                        throw IllegalArgumentException("value for $CHALLENGE_KEY must be an integer")
-                    }
-
                     // return the valid properties file
-                    return ClientInfo(challenge,publicKey.toCollection(ArrayList()),clientName)
+                    return ClientInfo(
+                        try {properties.getProperty(CHALLENGE_KEY).toLong()}
+                        catch (ex:Exception) {throw IllegalArgumentException("failed to parse \"$CHALLENGE_KEY\" field.",ex)},
+                        try {properties.getProperty(PUBLIC_KEY_KEY).let {DatatypeConverter.parseHexBinary(it)}.toCollection(ArrayList())}
+                        catch (ex:Exception) {throw IllegalArgumentException("failed to parse \"$PUBLIC_KEY_KEY\" field.",ex)}
+                        ,clientName)
                 }
                 catch (ex:Exception)
                 {

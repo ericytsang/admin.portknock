@@ -174,7 +174,7 @@ abstract class Editor<Obj>
 
     /**
      * maps keys to their hint texts to be shown on the GUI if null is passed to
-     * [openEditUi].
+     * [getUserInput].
      */
     protected abstract val hints:Map<String,String>
 
@@ -200,7 +200,7 @@ abstract class Editor<Obj>
      * [Obj] which is returned back to the caller. null can be returned to the
      * caller if the user cancels the operation.
      */
-    fun openEditUi(obj:Obj?,windowTitle:String):Obj?
+    fun getUserInput(obj:Obj?,windowTitle:String):Obj?
     {
         @Suppress("NAME_SHADOWING")
         var obj = obj
